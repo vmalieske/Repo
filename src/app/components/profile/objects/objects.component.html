@@ -86,6 +86,9 @@
                 [matTooltip]="'Visibility and access'"
                 color="primary">visibility</mat-icon>
               </button>
+              <button mat-menu-item (click)="openTransferOwner()">
+                <mat-icon [matTooltip]="'Manage owners'" color="primary">groups</mat-icon>
+              </button>
               <button mat-menu-item (click)="multiRemoveEntities()">
                 <mat-icon
                 [matTooltip]="'Delete objects (forever)'" 
@@ -111,10 +114,10 @@
                   <span>{{'Add to collection' | translate }}</span>
                 </button>
               }
-                <!-- <button mat-menu-item (click)="manageOwners()">
+                <button mat-menu-item (click)="openTransferOwner()">
                   <mat-icon color="primary">groups</mat-icon>
                   <span>Manage owners</span>
-                </button> -->
+                </button>
                 <button mat-menu-item (click)="multiRemoveEntities()">
                   <mat-icon color="warn">close</mat-icon>
                   <span>{{'Delete objects (forever)' | translate }}</span>
@@ -182,7 +185,7 @@
                     <span>{{ 'Object settings' | translate }}</span>
                   </button>
                   <button
-                    (click)="openEntityOwnerSelection(entity)"
+                    (click)="openTransferOwner(entity)"
                     mat-menu-item
                     >
                     <mat-icon color="primary">groups</mat-icon>

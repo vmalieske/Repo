@@ -1,7 +1,7 @@
 import { Component, computed, ElementRef, Input, OnInit, QueryList, signal, ViewChildren } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, map } from 'rxjs';
 
 
 import { MatIconButton } from '@angular/material/button';
@@ -23,6 +23,7 @@ import { EntityRightsDialogComponent, EntitySettingsDialogComponent, VisibilityA
 import { AddCompilationWizardComponent, AddEntityWizardComponent } from '../../../wizards';
 import { SelectionService } from 'src/app/services/selection.service';
 import { SelectionBox } from "../../selection-box/selection-box.component";
+import { ManageOwnershipComponent } from 'src/app/dialogs/manage-ownership/manage-ownership.component';
 
 @Component({
   selector: 'app-objects',
@@ -86,6 +87,12 @@ export class ObjectsComponent implements OnInit {
     this.account.user$.subscribe(newData => {
       this.userData = newData;
     });
+
+    console.log('UserData: ', this.userData);
+  }
+  
+  async getEntitiesAsEditor() {
+    return this.backend.findEntitiesWithAccessRole('editor');
   }
 
   async updateFilteredEntities() {
@@ -180,10 +187,13 @@ export class ObjectsComponent implements OnInit {
     this.helper.editSettingsInViewer(entity);
   }
 
-  public openEntityOwnerSelection(entity: IEntity) {
+  public openTransferOwner(entity?: IEntity) {
 
-    this.dialog.open(EntityRightsDialogComponent, {
-      data: entity,
+    const selection = this.getSelection();
+    const data = entity ?? (selection.length === 1 ? selection[0] : selection);
+
+    this.dialog.open(ManageOwnershipComponent, {
+      data: data,
       disableClose: false,
     });
 
@@ -192,8 +202,9 @@ export class ObjectsComponent implements OnInit {
 
   public openVisibilityAndAccess(entity?: IEntity) {
 
-    const data = entity ? entity : this.getSelection();
-
+    const selection = this.getSelection();
+    const data = entity ?? (selection.length === 1 ? selection[0] : selection);
+    
     const dialogRef = this.dialog.open(VisibilityAndAccessDialogComponent, {
       data: data,
       disableClose: true,
@@ -363,6 +374,11 @@ export class ObjectsComponent implements OnInit {
 
   async ngOnInit() {
     this.updateFilteredEntities();
+    console.log(this.userData);
+
+    this.account.profileEntities$.subscribe(entities => {
+      console.log('Entities: ', entities);
+    });
   }
 
 }

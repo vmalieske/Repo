@@ -1,8 +1,8 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, combineLatest } from 'rxjs';
-import { filter, map } from 'rxjs/operators';
+import { filter, map, startWith } from 'rxjs/operators';
 
-import { IUserData, UserRank, isEntity } from 'src/common';
+import { IEntity, IUserData, UserRank, isEntity } from 'src/common';
 import { BackendService, EventsService, SnackbarService } from './';
 
 const cleanUser = (user: IUserData) => {
@@ -19,12 +19,26 @@ export class AccountService {
   private userData = new BehaviorSubject<IUserData | undefined>(undefined);
   public userData$ = this.userData.asObservable();
 
+  private profileEntities = new BehaviorSubject<IEntity[] | []>([]);
+  public profileEntities$ = this.profileEntities.asObservable();
+
+  private ownerEntities = new BehaviorSubject<IEntity[] | []>([]);
+  public ownerEntities$ = this.ownerEntities.asObservable();
+
+  private editorEntities = new BehaviorSubject<IEntity[] | []>([]);
+  public editorEntities$ = this.ownerEntities.asObservable();
+
+  private viewerEntities = new BehaviorSubject<IEntity[] | []>([]);
+  public viewerEntities$ = this.ownerEntities.asObservable();
+
   constructor(
     private backend: BackendService,
     private snackbar: SnackbarService,
     private events: EventsService,
   ) {
     this.userData$.subscribe(changes => console.log('Userdata changed:', changes));
+
+    this.getProfileEntities();
 
     combineLatest([this.user$, this.unpublishedEntities$]).subscribe(
       ([user, unpublishedEntities]) => {
@@ -42,31 +56,31 @@ export class AccountService {
 
   // Published: finished && online && !whitelist.enabled
   get publishedEntities$() {
-    return this.entities$.pipe(
+    return this.profileEntities$.pipe(
       map(arr => arr.filter(e => e.finished && e.online && !e.whitelist.enabled)),
     );
   }
 
   // Unpublished: finished && !online
   get unpublishedEntities$() {
-    return this.entities$.pipe(map(arr => arr.filter(e => e.finished && !e.online)));
+    return this.profileEntities$.pipe(map(arr => arr.filter(e => e.finished && !e.online)));
   }
 
   // Restricted: finished && online && whitelist.enabled
   get restrictedEntities$() {
-    return this.entities$.pipe(
+    return this.profileEntities$.pipe(
       map(arr => arr.filter(e => e.finished && e.online && e.whitelist.enabled)),
     );
   }
 
   // Unfinished: !finished
   get unfinishedEntities$() {
-    return this.entities$.pipe(map(arr => arr.filter(e => !e.finished)));
+    return this.profileEntities$.pipe(map(arr => arr.filter(e => !e.finished)));
   }
 
-  get entities$() {
-    return this.user$.pipe(map(user => user.data.entity?.filter(isEntity) ?? []));
-  }
+  // get entities$() {
+  //   return this.user$.pipe(map(user => user.data.entity?.filter(isEntity) ?? []));
+  // }
 
   get user$() {
     return this.userData$.pipe(
@@ -98,6 +112,37 @@ export class AccountService {
     return userdata;
   }
 
+  public async getProfileEntities(): Promise<void> {
+    const [owners, editors] = await Promise.all([
+      this.getEntitiesByAccessRoles('owner'),
+      this.getEntitiesByAccessRoles('editor'),
+    ]);
+    const combined = [...owners, ...editors];
+    this.profileEntities.next(combined);
+  }
+
+  public getOwnerEntities() {
+    this.getEntitiesByAccessRoles('owner').then(ownerEntities => {
+      this.ownerEntities.next(ownerEntities);
+    });
+  }
+
+  public getEditorEntities() {
+    this.getEntitiesByAccessRoles('editor').then(editorEntities => {
+      this.editorEntities.next(editorEntities);
+    });
+  }
+
+  public getViewerEntities() {
+    this.getEntitiesByAccessRoles('viewer').then(viewerEntities => {
+      this.viewerEntities.next(viewerEntities);
+    });
+  }  
+
+  private getEntitiesByAccessRoles(role: string): Promise<IEntity[]> {
+    return this.backend.findEntitiesWithAccessRole(role);
+  }
+
   public async loginOrFetch(data?: { username: string; password: string }) {
     const promise = data
       ? this.backend.login(data.username, data.password)
@@ -115,3 +160,4 @@ export class AccountService {
     this.events.updateSearchEvent();
   }
 }
+

@@ -11,6 +11,18 @@ mat-form-field {
   }
 }
 
+::ng-deep {
+  .mat-horizontal-stepper-wrapper {
+    height: 55rem !important;
+    // background-color: red;
+  }
+}
+
+.stepper-content {
+  height: 55vh;
+  // background-color: green;
+}
+
 .metadata-overview {
   mat-icon {
     padding-right: 1rem;
@@ -22,7 +34,7 @@ mat-form-field {
 }
 
 iframe#viewer-frame {
-  height: 65vh;
+  height: 55vh;
   width: 100%;
 }
 
@@ -60,10 +72,11 @@ iframe#viewer-frame {
 
 #container {
   width: 60rem;
-  height: 50rem;
+  // height: 50rem;
 }
 
 div#container-finalize {
+  overflow-y: scroll;
   h1,
   h3,
   .name {

@@ -1,4 +1,4 @@
-<app-selection-container #sc>
+<app-selection-container #sc [actionsTemplate]="selectionActions">
   <div
     class="tab-main"
     (mousedown)="onMouseDown($event)"
@@ -13,28 +13,7 @@
       }
     }
 
-    <div
-      class="selection"
-      [class.has-selection]="sc.selectionService.selectedEntities().length > 0"
-    >
-      <button mat-icon-button color="warn" (click)="sc.selectionService.clearSelection()">
-        <mat-icon>close</mat-icon>
-      </button>
-      <p>{{ sc.selectionService.selectedEntities().length }} {{ 'selected' | translate }}</p>
-
-      @if (!isDraft()) {
-        <button mat-icon-button [matMenuTriggerFor]="quickAddToCollectionMenu">
-          <mat-icon [matTooltip]="'Add to collection' | translate" color="primary"
-            >library_add</mat-icon
-          >
-        </button>
-      }
-      <button mat-icon-button (click)="multiRemoveEntities()">
-        <mat-icon [matTooltip]="'Delete objects (forever)' | translate" color="warn"
-          >delete_forever</mat-icon
-        >
-      </button>
-
+    <ng-template #selectionActions>
       <button mat-icon-button color="primary" [matMenuTriggerFor]="selectionMenu">
         <mat-icon>more_horiz</mat-icon>
       </button>
@@ -103,7 +82,7 @@
           <span>{{ 'Delete' | translate }}</span>
         </button>
       </mat-menu>
-    </div>
+    </ng-template>
     <div class="entity-grid">
       @for (entity of paginatorEntities$ | async; track entity._id) {
         <div class="grid-item" #gridItem [class.selected]="isSelected(entity)">

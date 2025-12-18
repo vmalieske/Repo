@@ -1,2 +1,46 @@
-:host { display: block; position: relative; }
-.selection-container { position: relative; }
+@use '@angular/material' as mat;
+@use '../../../easings' as easings;
+
+:host {
+  display: block;
+  position: relative;
+}
+.selection-container {
+  position: relative;
+}
+
+.selection {
+  display: flex;
+  align-items: center;
+  background-color: #f5f5f6;
+  z-index: 1000;
+
+  padding: 0px 16px;
+  margin-bottom: 10px;
+  border-radius: 4px;
+  gap: 8px;
+
+  pointer-events: none;
+  filter: opacity(0.5);
+
+  transition: filter 0.3s easings.$easeOutQuad;
+
+  &.has-selection {
+    filter: opacity(1);
+    pointer-events: auto;
+  }
+
+  button {
+    letter-spacing: normal !important;
+    mat-icon {
+      font-size: 24px;
+      width: 24px;
+      height: 24px;
+    }
+  }
+
+  button.mdc-icon-button {
+    --mdc-icon-button-state-layer-size: 40px !important;
+    padding: 6px !important;
+  }
+}

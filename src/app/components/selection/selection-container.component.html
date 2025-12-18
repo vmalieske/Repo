@@ -1,4 +1,12 @@
 <div class="selection-container">
+  <div class="selection" [class.has-selection]="selectionService.selectedEntities().length > 0">
+    <button mat-icon-button color="warn" (click)="selectionService.clearSelection()">
+      <mat-icon>close</mat-icon>
+    </button>
+    <p>{{ selectionService.selectedEntities().length }} {{ 'selected' | translate }}</p>
+
+    <ng-container *ngTemplateOutlet="actionsTemplate"></ng-container>
+  </div>
   <ng-content></ng-content>
   <app-selection-box></app-selection-box>
 </div>

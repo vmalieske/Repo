@@ -6,7 +6,7 @@ export class SelectionService {
   private selectedEntitiesSignal = signal<IEntity[]>([]);
   public selectedEntities = this.selectedEntitiesSignal.asReadonly();
 
-  public isDragging: boolean = false;
+  public isDragging = signal<boolean>(false);
   private startX: number = 0;
   private startY: number = 0;
   public selectionBoxStyle = signal<{ [key: string]: string }>({});
@@ -51,7 +51,7 @@ export class SelectionService {
   }
 
   onMouseDown(event: MouseEvent) {
-    this.isDragging = true;
+    this.isDragging.set(true);
     this.startX = event.clientX;
     this.startY = event.clientY;
 
@@ -64,7 +64,7 @@ export class SelectionService {
   }
 
   onMouseMove(event: MouseEvent): void {
-    if (this.isDragging) {
+    if (this.isDragging()) {
       const width = event.clientX - this.startX;
       const height = event.clientY - this.startY;
       const left = this.startX < event.clientX ? this.startX : event.clientX;
@@ -80,7 +80,7 @@ export class SelectionService {
   }
 
   stopDragging() {
-    this.isDragging = false;
+    this.isDragging.set(false);
     this.selectionBoxStyle.set({});
   }
 

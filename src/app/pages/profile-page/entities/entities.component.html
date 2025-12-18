@@ -1,207 +1,210 @@
-<div
-  class="tab-main"
-  (mousedown)="onMouseDown($event)"
-  (mousemove)="onMouseMove($event)"
-  (mouseup)="onMouseUp()"
->
-  @if (filteredEntities$ | async; as filteredEntities) {
-    @if (filteredEntities.length === 0) {
-      <div>
-        <h3>{{ 'No matches' | translate }}</h3>
-      </div>
-    }
-  }
-
-  <div class="selection" [class.has-selection]="selectionService.selectedEntities().length > 0">
-    <button mat-icon-button color="warn" (click)="selectionService.clearSelection()">
-      <mat-icon>close</mat-icon>
-    </button>
-    <p>{{ selectionService.selectedEntities().length }} {{ 'selected' | translate }}</p>
-
-    @if (!isDraft()) {
-      <button mat-icon-button [matMenuTriggerFor]="quickAddToCollectionMenu">
-        <mat-icon [matTooltip]="'Add to collection' | translate" color="primary"
-          >library_add</mat-icon
-        >
-      </button>
-    }
-    <button mat-icon-button (click)="multiRemoveEntities()">
-      <mat-icon [matTooltip]="'Delete objects (forever)' | translate" color="warn"
-        >delete_forever</mat-icon
-      >
-    </button>
-
-    <button mat-icon-button color="primary" [matMenuTriggerFor]="selectionMenu">
-      <mat-icon>more_horiz</mat-icon>
-    </button>
-    <mat-menu #selectionMenu="matMenu" yPosition="below">
-      @if (isDraft()) {
-        <button
-          mat-menu-item
-          [disabled]="!singleSelectedEntity() || selectionHasViewerEntities()"
-          (click)="continueEntityUpload(singleSelectedEntity()!)"
-        >
-          <mat-icon color="primary">redo</mat-icon>
-          <span>{{ 'Continue upload' | translate }}</span>
-        </button>
+<app-selection-container #sc>
+  <div
+    class="tab-main"
+    (mousedown)="onMouseDown($event)"
+    (mousemove)="onMouseMove($event)"
+    (mouseup)="onMouseUp()"
+  >
+    @if (filteredEntities$ | async; as filteredEntities) {
+      @if (filteredEntities.length === 0) {
+        <div>
+          <h3>{{ 'No matches' | translate }}</h3>
+        </div>
       }
-      @if (!isDraft()) {
-        <button
-          mat-menu-item
-          [disabled]="!singleSelectedEntity() || selectionHasViewerEntities()"
-          [routerLink]="['/entity', singleSelectedEntity()?._id]"
-        >
-          <mat-icon class="material-symbols-outlined" color="primary">open_run</mat-icon>
-          <span>{{ 'Open' | translate }}</span>
-        </button>
-        <button mat-menu-item [matMenuTriggerFor]="quickAddToCollectionMenu">
-          <mat-icon color="primary">library_add</mat-icon>
-          <span>{{ 'Add to collection' | translate }}</span>
-        </button>
-        <button
-          mat-menu-item
-          [disabled]="!singleSelectedEntity() || selectionHasViewerEntities()"
-          (click)="editViewerSettings(singleSelectedEntity()!)"
-        >
-          <mat-icon color="primary">settings</mat-icon>
-          <span>{{ 'Edit 3D settings' | translate }}</span>
-        </button>
-        <button
-          mat-menu-item
-          [disabled]="!singleSelectedEntity() || selectionHasViewerEntities()"
-          (click)="editEntity(singleSelectedEntity()!)"
-        >
-          <mat-icon color="primary">edit</mat-icon>
-          <span>{{ 'Edit metadata' | translate }}</span>
-        </button>
-      }
-      <button
-        mat-menu-item
-        (click)="openVisibilityAndAccessDialog()"
-        [disabled]="selectionHasEditorEntities() || selectionHasViewerEntities()"
-      >
-        <mat-icon color="primary">visibility</mat-icon>
-        <span>{{ 'Visibility and access' | translate }}</span>
+    }
+
+    <div
+      class="selection"
+      [class.has-selection]="sc.selectionService.selectedEntities().length > 0"
+    >
+      <button mat-icon-button color="warn" (click)="sc.selectionService.clearSelection()">
+        <mat-icon>close</mat-icon>
       </button>
+      <p>{{ sc.selectionService.selectedEntities().length }} {{ 'selected' | translate }}</p>
 
       @if (!isDraft()) {
-        <button
-          mat-menu-item
-          (click)="openTransferOwnerDialog()"
-          [disabled]="selectionHasEditorEntities() || selectionHasViewerEntities()"
-        >
-          <mat-icon color="primary">manage_accounts</mat-icon>
-          <span>{{ 'Transfer ownership' | translate }}</span>
+        <button mat-icon-button [matMenuTriggerFor]="quickAddToCollectionMenu">
+          <mat-icon [matTooltip]="'Add to collection' | translate" color="primary"
+            >library_add</mat-icon
+          >
         </button>
       }
-      <button mat-menu-item (click)="multiRemoveEntities()">
-        <mat-icon color="warn">delete_forever</mat-icon>
-        <span>{{ 'Delete' | translate }}</span>
+      <button mat-icon-button (click)="multiRemoveEntities()">
+        <mat-icon [matTooltip]="'Delete objects (forever)' | translate" color="warn"
+          >delete_forever</mat-icon
+        >
       </button>
-    </mat-menu>
-  </div>
 
-  <app-selection-box />
-  <div class="entity-grid">
-    @for (entity of paginatorEntities$ | async; track entity._id) {
-      <div class="grid-item" #gridItem [class.selected]="isSelected(entity)">
-        <app-grid-element
-          [element]="entity"
-          [disableTypeInfo]="true"
-          [disableNavigationOnClick]="true"
-          (click)="addEntityToSelection(entity, $event)"
-        />
-        <mat-icon class="material-symbols-filled card-icon">deployed_code</mat-icon>
-        <!-- Advanced settings -->
-        <button class="actionbutton" mat-icon-button [matMenuTriggerFor]="menu" color="primary">
-          <mat-icon>more_horiz</mat-icon>
-        </button>
-        <mat-menu #menu="matMenu" yPosition="below">
-          @if (!entity.finished) {
-            <button
-              mat-menu-item
-              (click)="continueEntityUpload(entity)"
-              [disabled]="entity | isUserOfRole: 'viewer' : user()"
-            >
-              <mat-icon class="material-symbols-outlined" color="primary">upload</mat-icon>
-              <span>{{ 'Continue upload' | translate }}</span>
-            </button>
-          }
-          @if (entity.finished) {
-            <button
-              mat-menu-item
-              [disabled]="entity | isUserOfRole: 'viewer' : user()"
-              [routerLink]="['/entity', entity._id]"
-            >
-              <mat-icon class="material-symbols-outlined" color="primary">open_run</mat-icon>
-              <span>{{ 'Open' | translate }}</span>
-            </button>
-            <button
-              mat-menu-item
-              [matMenuTriggerFor]="quickAddToCollectionMenu"
-              (mouseenter)="addEntityToSelection(entity, $event)"
-              (onMenuClose)="selectionService.clearSelection()"
-            >
-              <mat-icon color="primary">library_add</mat-icon>
-              <span>{{ 'Add to collection' | translate }}</span>
-            </button>
-            <button
-              mat-menu-item
-              (click)="editViewerSettings(entity)"
-              [disabled]="entity | isUserOfRole: 'viewer' : user()"
-            >
-              <mat-icon color="primary">settings</mat-icon>
-              <span>{{ 'Edit 3D settings' | translate }}</span>
-            </button>
-            <button
-              mat-menu-item
-              (click)="editEntity(entity)"
-              [disabled]="entity | isUserOfRole: 'viewer' : user()"
-            >
-              <mat-icon color="primary">edit</mat-icon>
-              <span>{{ 'Edit metadata' | translate }}</span>
-            </button>
-          }
+      <button mat-icon-button color="primary" [matMenuTriggerFor]="selectionMenu">
+        <mat-icon>more_horiz</mat-icon>
+      </button>
+      <mat-menu #selectionMenu="matMenu" yPosition="below">
+        @if (isDraft()) {
           <button
             mat-menu-item
-            (click)="openVisibilityAndAccessDialog(entity)"
-            [disabled]="!(entity | isUserOfRole: 'owner' : user())"
+            [disabled]="!singleSelectedEntity() || selectionHasViewerEntities()"
+            (click)="continueEntityUpload(singleSelectedEntity()!)"
           >
-            <mat-icon color="primary">visibility</mat-icon>
-            <span>{{ 'Visibility and access' | translate }}</span>
+            <mat-icon color="primary">redo</mat-icon>
+            <span>{{ 'Continue upload' | translate }}</span>
           </button>
+        }
+        @if (!isDraft()) {
+          <button
+            mat-menu-item
+            [disabled]="!singleSelectedEntity() || selectionHasViewerEntities()"
+            [routerLink]="['/entity', singleSelectedEntity()?._id]"
+          >
+            <mat-icon class="material-symbols-outlined" color="primary">open_run</mat-icon>
+            <span>{{ 'Open' | translate }}</span>
+          </button>
+          <button mat-menu-item [matMenuTriggerFor]="quickAddToCollectionMenu">
+            <mat-icon color="primary">library_add</mat-icon>
+            <span>{{ 'Add to collection' | translate }}</span>
+          </button>
+          <button
+            mat-menu-item
+            [disabled]="!singleSelectedEntity() || selectionHasViewerEntities()"
+            (click)="editViewerSettings(singleSelectedEntity()!)"
+          >
+            <mat-icon color="primary">settings</mat-icon>
+            <span>{{ 'Edit 3D settings' | translate }}</span>
+          </button>
+          <button
+            mat-menu-item
+            [disabled]="!singleSelectedEntity() || selectionHasViewerEntities()"
+            (click)="editEntity(singleSelectedEntity()!)"
+          >
+            <mat-icon color="primary">edit</mat-icon>
+            <span>{{ 'Edit metadata' | translate }}</span>
+          </button>
+        }
+        <button
+          mat-menu-item
+          (click)="openVisibilityAndAccessDialog()"
+          [disabled]="selectionHasEditorEntities() || selectionHasViewerEntities()"
+        >
+          <mat-icon color="primary">visibility</mat-icon>
+          <span>{{ 'Visibility and access' | translate }}</span>
+        </button>
 
-          @if (entity.finished) {
+        @if (!isDraft()) {
+          <button
+            mat-menu-item
+            (click)="openTransferOwnerDialog()"
+            [disabled]="selectionHasEditorEntities() || selectionHasViewerEntities()"
+          >
+            <mat-icon color="primary">manage_accounts</mat-icon>
+            <span>{{ 'Transfer ownership' | translate }}</span>
+          </button>
+        }
+        <button mat-menu-item (click)="multiRemoveEntities()">
+          <mat-icon color="warn">delete_forever</mat-icon>
+          <span>{{ 'Delete' | translate }}</span>
+        </button>
+      </mat-menu>
+    </div>
+    <div class="entity-grid">
+      @for (entity of paginatorEntities$ | async; track entity._id) {
+        <div class="grid-item" #gridItem [class.selected]="isSelected(entity)">
+          <app-grid-element
+            [element]="entity"
+            [disableTypeInfo]="true"
+            [disableNavigationOnClick]="true"
+            (click)="addEntityToSelection(entity, $event)"
+          />
+          <mat-icon class="material-symbols-filled card-icon">deployed_code</mat-icon>
+          <!-- Advanced settings -->
+          <button class="actionbutton" mat-icon-button [matMenuTriggerFor]="menu" color="primary">
+            <mat-icon>more_horiz</mat-icon>
+          </button>
+          <mat-menu #menu="matMenu" yPosition="below">
+            @if (!entity.finished) {
+              <button
+                mat-menu-item
+                (click)="continueEntityUpload(entity)"
+                [disabled]="entity | isUserOfRole: 'viewer' : user()"
+              >
+                <mat-icon class="material-symbols-outlined" color="primary">upload</mat-icon>
+                <span>{{ 'Continue upload' | translate }}</span>
+              </button>
+            }
+            @if (entity.finished) {
+              <button
+                mat-menu-item
+                [disabled]="entity | isUserOfRole: 'viewer' : user()"
+                [routerLink]="['/entity', entity._id]"
+              >
+                <mat-icon class="material-symbols-outlined" color="primary">open_run</mat-icon>
+                <span>{{ 'Open' | translate }}</span>
+              </button>
+              <button
+                mat-menu-item
+                [matMenuTriggerFor]="quickAddToCollectionMenu"
+                (mouseenter)="addEntityToSelection(entity, $event)"
+                (onMenuClose)="sc.selectionService.clearSelection()"
+              >
+                <mat-icon color="primary">library_add</mat-icon>
+                <span>{{ 'Add to collection' | translate }}</span>
+              </button>
+              <button
+                mat-menu-item
+                (click)="editViewerSettings(entity)"
+                [disabled]="entity | isUserOfRole: 'viewer' : user()"
+              >
+                <mat-icon color="primary">settings</mat-icon>
+                <span>{{ 'Edit 3D settings' | translate }}</span>
+              </button>
+              <button
+                mat-menu-item
+                (click)="editEntity(entity)"
+                [disabled]="entity | isUserOfRole: 'viewer' : user()"
+              >
+                <mat-icon color="primary">edit</mat-icon>
+                <span>{{ 'Edit metadata' | translate }}</span>
+              </button>
+            }
             <button
-              (click)="openTransferOwnerDialog(entity)"
               mat-menu-item
+              (click)="openVisibilityAndAccessDialog(entity)"
               [disabled]="!(entity | isUserOfRole: 'owner' : user())"
             >
-              <mat-icon color="primary">manage_accounts</mat-icon>
-              <span>{{ 'Transfer ownership' | translate }}</span>
+              <mat-icon color="primary">visibility</mat-icon>
+              <span>{{ 'Visibility and access' | translate }}</span>
             </button>
-          }
-          <button (click)="singleRemoveEntity(entity)" mat-menu-item color="accent">
-            <mat-icon color="accent">delete</mat-icon>
-            <span>{{ 'Delete' | translate }}</span>
-          </button>
-        </mat-menu>
-      </div>
-    }
-  </div>
 
-  <mat-paginator
-    [length]="(filteredLength$ | async) ?? 0"
-    [pageSize]="20"
-    [pageSizeOptions]="[20]"
-    (page)="pageEvent$.next($event)"
-    hidePageSize="true"
-    color="primary"
-    showFirstLastButtons="true"
-    #entityPaginator
-  >
-  </mat-paginator>
-</div>
+            @if (entity.finished) {
+              <button
+                (click)="openTransferOwnerDialog(entity)"
+                mat-menu-item
+                [disabled]="!(entity | isUserOfRole: 'owner' : user())"
+              >
+                <mat-icon color="primary">manage_accounts</mat-icon>
+                <span>{{ 'Transfer ownership' | translate }}</span>
+              </button>
+            }
+            <button (click)="singleRemoveEntity(entity)" mat-menu-item color="accent">
+              <mat-icon color="accent">delete</mat-icon>
+              <span>{{ 'Delete' | translate }}</span>
+            </button>
+          </mat-menu>
+        </div>
+      }
+    </div>
+
+    <mat-paginator
+      [length]="(filteredLength$ | async) ?? 0"
+      [pageSize]="20"
+      [pageSizeOptions]="[20]"
+      (page)="pageEvent$.next($event)"
+      hidePageSize="true"
+      color="primary"
+      showFirstLastButtons="true"
+      #entityPaginator
+    >
+    </mat-paginator>
+  </div>
+</app-selection-container>
 <mat-menu #quickAddToCollectionMenu="matMenu">
   <button mat-menu-item (click)="openCompilationWizard()">
     <span>{{ 'New collection with this object' | translate }}</span>

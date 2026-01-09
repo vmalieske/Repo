@@ -1,53 +1,68 @@
 import { Injectable, signal } from '@angular/core';
-import { IEntity } from 'src/common';
+import { IEntity, ICompilation, isEntity } from 'src/common';
 
 @Injectable({ providedIn: 'root' })
 export class SelectionService {
-  private selectedEntitiesSignal = signal<IEntity[]>([]);
-  public selectedEntities = this.selectedEntitiesSignal.asReadonly();
+  private selectedElementsSignal = signal<(IEntity | ICompilation)[]>([]);
+  public selectedElements = this.selectedElementsSignal.asReadonly();
 
   public isDragging = signal<boolean>(false);
   private startX: number = 0;
   private startY: number = 0;
   public selectionBoxStyle = signal<{ [key: string]: string }>({});
 
-  public isSelected(entity: IEntity): boolean {
-    return this.selectedEntitiesSignal().some(
-      currentEntity => currentEntity.relatedDigitalEntity._id === entity.relatedDigitalEntity._id,
+  public isSelected(element: IEntity | ICompilation): boolean {
+    return this.selectedElementsSignal().some(currentElement =>
+      this.isSameElement(element, currentElement),
     );
   }
 
-  public addToSelection(entity: IEntity, event: MouseEvent) {
-    this.selectedEntitiesSignal.update(selection => {
-      const entityExists = selection.some(
-        currentEntity => currentEntity.relatedDigitalEntity._id === entity.relatedDigitalEntity._id,
+  public addToSelection(element: IEntity | ICompilation, event: MouseEvent) {
+    this.selectedElementsSignal.update(selection => {
+      const elementExists = selection.some(currentElement =>
+        this.isSameElement(element, currentElement),
       );
 
       if (event.shiftKey || event.ctrlKey) {
-        if (entityExists) {
-          return selection.filter(
-            currentEntity =>
-              currentEntity.relatedDigitalEntity._id !== entity.relatedDigitalEntity._id,
-          );
+        if (elementExists) {
+          return selection.filter(currentElement => !this.isSameElement(element, currentElement));
         } else {
-          return [...selection, entity];
+          return [...selection, element];
         }
       } else {
-        return [entity];
+        return [element];
       }
     });
   }
 
-  public clearSelection() {
-    this.selectedEntitiesSignal.set([]);
+  private isSameElement(
+    element: IEntity | ICompilation,
+    currentElement: IEntity | ICompilation,
+  ): boolean {
+    return isEntity(element) && isEntity(currentElement)
+      ? element.relatedDigitalEntity._id === currentElement.relatedDigitalEntity._id
+      : element._id === currentElement._id;
   }
 
-  selectEntitiesInRect(selectionRect: DOMRect, pairs: { entity: IEntity; element: HTMLElement }[]) {
-    const selected = pairs
-      .filter(({ element }) => this.rectsOverlap(selectionRect, element.getBoundingClientRect()))
-      .map(({ entity }) => entity);
+  public clearSelection() {
+    this.selectedElementsSignal.set([]);
+  }
 
-    this.selectedEntitiesSignal.set(selected);
+  selectEntitiesInRect(
+    selectionRect: DOMRect,
+    pairs: { element: IEntity | ICompilation; htmlElement: HTMLElement }[],
+  ) {
+    console.log(pairs);
+    console.log(selectionRect);
+
+    const selected = pairs
+      .filter(({ htmlElement: element }) =>
+        this.rectsOverlap(selectionRect, element.getBoundingClientRect()),
+      )
+      .map(({ element: element }) => element);
+
+    this.selectedElementsSignal.set(selected);
+    console.log(selected);
   }
 
   onMouseDown(event: MouseEvent) {

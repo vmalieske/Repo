@@ -124,11 +124,7 @@ export class ProfileEntitiesComponent {
     () => this.selectionContainerSignal()?.selectionService ?? this._rootSelectionService,
   );
 
-  readonly singleSelectedEntity = computed(() => {
-    const entities = this.selectionService().selectedElements();
-    if (entities.length !== 1 || !isEntity(entities[0])) return null;
-    return entities[0];
-  });
+  readonly singleSelectedEntity = computed(() => this.selectionService().singleSelectedEntity());
 
   public pageEvent$ = new BehaviorSubject<PageEvent>({
     previousPageIndex: 0,

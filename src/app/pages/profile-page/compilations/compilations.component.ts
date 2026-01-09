@@ -116,7 +116,11 @@ export class ProfileCompilationsComponent {
   );
 
   filteredCompilationsSignal = toSignal(this.filteredCompilations$);
-  public user = toSignal(this.#account.user$);
+  user = toSignal(this.#account.user$);
+
+  readonly singleSelectedCompilation = computed(() =>
+    this.selectionService().singleSelectedCompilation(),
+  );
 
   public openCompilationCreation(compilation?: ICompilation) {
     const dialogRef = this.#dialog.open(AddCompilationWizardComponent, {

@@ -1,10 +1,25 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, computed, Signal } from '@angular/core';
 import { IEntity, ICompilation, isEntity } from 'src/common';
 
 @Injectable({ providedIn: 'root' })
 export class SelectionService {
   private selectedElementsSignal = signal<(IEntity | ICompilation)[]>([]);
   public selectedElements = this.selectedElementsSignal.asReadonly();
+
+  public singleSelected: Signal<IEntity | ICompilation | null> = computed(() => {
+    const sel = this.selectedElementsSignal();
+    return sel.length === 1 ? sel[0] : null;
+  });
+
+  public singleSelectedEntity: Signal<IEntity | null> = computed(() => {
+    const selection = this.singleSelected();
+    return selection && isEntity(selection) ? (selection as IEntity) : null;
+  });
+
+  public singleSelectedCompilation: Signal<ICompilation | null> = computed(() => {
+    const selection = this.singleSelected();
+    return selection && !isEntity(selection) ? (selection as ICompilation) : null;
+  });
 
   public isDragging = signal<boolean>(false);
   private startX: number = 0;

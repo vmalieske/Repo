@@ -34,15 +34,19 @@
         <mat-icon>more_horiz</mat-icon>
       </button>
       <mat-menu #selectionMenu="matMenu" yPosition="below">
-        <button mat-menu-item>
+        <button
+          mat-menu-item
+          [disabled]="!singleSelectedCompilation()"
+          [routerLink]="['/compilation', singleSelectedCompilation()?._id]"
+        >
           <mat-icon class="material-symbols-outlined" color="primary">open_run</mat-icon>
           {{ 'Open' | translate }}
         </button>
-        <button mat-menu-item>
+        <button mat-menu-item [disabled]="!singleSelectedCompilation()">
           <mat-icon color="primary">edit</mat-icon>
           {{ 'Edit collection' | translate }}
         </button>
-        <button mat-menu-item [disabled]="false">
+        <button mat-menu-item [disabled]="!singleSelectedCompilation()">
           <mat-icon color="primary">location_on</mat-icon>
           {{ 'Annotate' | translate }}
         </button>
@@ -71,6 +75,7 @@
                 [element]="element"
                 [disableTypeInfo]="false"
                 [disableNavigationOnClick]="true"
+                (click)="addCompilationToSelection(element, $event)"
               />
 
               @if (!showPartakingCompilations()) {

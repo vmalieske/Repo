@@ -1,9 +1,9 @@
 <div class="selection-container">
-  <div class="selection" [class.has-selection]="selectionService.selectedEntities().length > 0">
+  <div class="selection" [class.has-selection]="selectionService.selectedElements().length > 0">
     <button mat-icon-button color="warn" (click)="selectionService.clearSelection()">
       <mat-icon>close</mat-icon>
     </button>
-    <p>{{ selectionService.selectedEntities().length }} {{ 'selected' | translate }}</p>
+    <p>{{ selectionService.selectedElements().length }} {{ 'selected' | translate }}</p>
 
     <ng-container *ngTemplateOutlet="actionsTemplate"></ng-container>
   </div>

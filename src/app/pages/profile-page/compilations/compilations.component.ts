@@ -1,6 +1,16 @@
 import { AsyncPipe } from '@angular/common';
-import { Component, inject, input, signal } from '@angular/core';
-import { toObservable } from '@angular/core/rxjs-interop';
+import {
+  Component,
+  computed,
+  ElementRef,
+  inject,
+  input,
+  QueryList,
+  signal,
+  ViewChild,
+  ViewChildren,
+} from '@angular/core';
+import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatChipsModule } from '@angular/material/chips';
@@ -11,10 +21,18 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { RouterLink } from '@angular/router';
 import { combineLatest, map, switchMap } from 'rxjs';
+
 import { GridElementComponent } from 'src/app/components/grid-element/grid-element.component';
+import { SelectionContainerComponent } from 'src/app/components/selection/selection-container.component';
 import { TranslatePipe } from 'src/app/pipes';
-import { AccountService, BackendService, DialogHelperService } from 'src/app/services';
+import {
+  AccountService,
+  BackendService,
+  DialogHelperService,
+  SnackbarService,
+} from 'src/app/services';
 import { CacheManagerService } from 'src/app/services/cache-manager.service';
+import { SelectionService } from 'src/app/services/selection.service';
 import { AddCompilationWizardComponent } from 'src/app/wizards';
 import { Collection, ICompilation, isCompilation } from 'src/common';
 
@@ -35,6 +53,7 @@ import { Collection, ICompilation, isCompilation } from 'src/common';
     FormsModule,
     TranslatePipe,
     AsyncPipe,
+    SelectionContainerComponent,
   ],
 })
 export class ProfileCompilationsComponent {
@@ -43,12 +62,24 @@ export class ProfileCompilationsComponent {
   #dialog = inject(MatDialog);
   #backend = inject(BackendService);
   #helper = inject(DialogHelperService);
+  #rootSelectionService = inject(SelectionService);
+  #selectionContainerSignal = signal<SelectionContainerComponent | undefined>(undefined);
+  #snackbar = inject(SnackbarService);
+
+  @ViewChildren('gridItem', { read: ElementRef }) gridItems!: QueryList<ElementRef>;
+  @ViewChild('sc') set selectionContainer(container: SelectionContainerComponent | undefined) {
+    this.#selectionContainerSignal.set(container);
+  }
 
   showPartakingCompilations = signal(false);
   showPartakingCompilations$ = toObservable(this.showPartakingCompilations);
 
   searchText = input<string>('');
   searchText$ = toObservable(this.searchText);
+
+  public selectionService = computed<SelectionService>(
+    () => this.#selectionContainerSignal()?.selectionService ?? this.#rootSelectionService,
+  );
 
   userCompilations$ = this.#account.compilationsWithEntities$.pipe(
     map(compilations => compilations.filter(c => isCompilation(c))),
@@ -84,6 +115,9 @@ export class ProfileCompilationsComponent {
     }),
   );
 
+  filteredCompilationsSignal = toSignal(this.filteredCompilations$);
+  public user = toSignal(this.#account.user$);
+
   public openCompilationCreation(compilation?: ICompilation) {
     const dialogRef = this.#dialog.open(AddCompilationWizardComponent, {
       data: compilation,
@@ -112,5 +146,57 @@ export class ProfileCompilationsComponent {
         this.#account.updateTrigger$.next(Collection.compilation);
       })
       .catch(e => console.error(e));
+  }
+
+  //Selection
+
+  public isSelected(compilation: ICompilation): boolean {
+    return this.selectionService().isSelected(compilation);
+  }
+
+  public addCompilationToSelection(compilation: ICompilation, event: MouseEvent) {
+    this.selectionService().addToSelection(compilation, event);
+  }
+
+  onMouseDown(event: MouseEvent) {
+    const target = event.target as HTMLElement;
+
+    const hasSelectionBoxParent = !!target.closest('.selection');
+    const hasForbiddenTagName = ['BUTTON', 'INPUT', 'MAT-ICON', 'MAT-MENU-ITEM'].includes(
+      target.tagName,
+    );
+    if (hasSelectionBoxParent || hasForbiddenTagName) {
+      return;
+    }
+
+    if (!event.shiftKey && !event.ctrlKey) {
+      this.selectionService().onMouseDown(event);
+    }
+  }
+
+  onMouseMove(event: MouseEvent) {
+    this.selectionService().onMouseMove(event);
+  }
+
+  onMouseUp() {
+    const selectionRect = this.selectionService().getCurrentBoxRect();
+    this.selectionService().stopDragging();
+    if (!selectionRect) return;
+
+    const user = this.user();
+    if (!user?._id) {
+      this.#snackbar.showMessage('You must be logged in to select entities.', 5);
+      return;
+    }
+
+    console.log(this.gridItems);
+
+    const compElementPairs =
+      this.filteredCompilationsSignal()?.results.map((element, index) => ({
+        element,
+        htmlElement: this.gridItems.get(index)?.nativeElement as HTMLElement,
+      })) || [];
+
+    this.selectionService().selectEntitiesInRect(selectionRect, compElementPairs);
   }
 }

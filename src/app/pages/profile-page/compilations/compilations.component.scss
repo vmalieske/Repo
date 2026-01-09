@@ -38,3 +38,32 @@ span.mat-content {
 .mat-icon {
   font-size: 24px;
 }
+
+.tab-main {
+  margin-left: -48px;
+  margin-right: -48px;
+  padding-left: 48px;
+  padding-right: 48px;
+  width: calc(100% + 96px);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.grid-item {
+  cursor: context-menu;
+  z-index: 1;
+  border: solid 4px transparent;
+  border-radius: 0.6rem;
+
+  &.selected {
+    background-color: lightblue;
+    border-color: var(--brand-color);
+  }
+}
+
+.grid-item.selected ::ng-deep .title:after {
+  background: transparent;
+}

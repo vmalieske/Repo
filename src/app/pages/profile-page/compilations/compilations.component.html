@@ -22,80 +22,119 @@
   </div>
 </div>
 
-<div class="tab-main">
-  @if (filteredCompilations$ | async; as compilations) {
-    @if (compilations.results.length > 0) {
-      <div class="entity-grid">
-        @for (element of compilations.results; track element._id) {
-          <div class="grid-item">
-            <app-grid-element
-              class="grid-item"
-              [element]="element"
-              [disableTypeInfo]="false"
-              [disableNavigationOnClick]="true"
-            />
+<app-selection-container #sc [actionsTemplate]="selectionActions">
+  <div
+    class="tab-main"
+    (mousedown)="onMouseDown($event)"
+    (mousemove)="onMouseMove($event)"
+    (mouseup)="onMouseUp()"
+  >
+    <ng-template #selectionActions>
+      <button mat-icon-button color="primary" [matMenuTriggerFor]="selectionMenu">
+        <mat-icon>more_horiz</mat-icon>
+      </button>
+      <mat-menu #selectionMenu="matMenu" yPosition="below">
+        <button mat-menu-item>
+          <mat-icon class="material-symbols-outlined" color="primary">open_run</mat-icon>
+          {{ 'Open' | translate }}
+        </button>
+        <button mat-menu-item>
+          <mat-icon color="primary">edit</mat-icon>
+          {{ 'Edit collection' | translate }}
+        </button>
+        <button mat-menu-item [disabled]="false">
+          <mat-icon color="primary">location_on</mat-icon>
+          {{ 'Annotate' | translate }}
+        </button>
+        <button mat-menu-item>
+          <mat-icon color="primary">visibility</mat-icon>
+          <span>{{ 'Visibility and access' | translate }}</span>
+        </button>
+        <button mat-menu-item>
+          <mat-icon color="primary">manage_accounts</mat-icon>
+          <span>{{ 'Transfer ownership' | translate }}</span>
+        </button>
+        <button mat-menu-item>
+          <mat-icon color="warn">delete_forever</mat-icon>
+          <span>{{ 'Delete' | translate }}</span>
+        </button>
+      </mat-menu>
+    </ng-template>
 
-            @if (!showPartakingCompilations()) {
-              <mat-icon class="material-symbols-filled card-icon">filter_none</mat-icon>
-              <!-- Advanced settings -->
-              <button
-                class="actionbutton"
-                mat-icon-button
-                [matMenuTriggerFor]="menu"
-                color="primary"
-              >
-                <mat-icon>more_horiz</mat-icon>
-              </button>
-              <mat-menu #menu="matMenu" yPosition="below">
-                <button mat-menu-item [routerLink]="['/compilation', element._id]">
-                  <mat-icon class="material-symbols-outlined" color="primary">open_run</mat-icon>
-                  {{ 'Open' | translate }}
-                </button>
-                <button mat-menu-item (click)="openCompilationCreation(element)">
-                  <mat-icon color="primary">edit</mat-icon>
-                  {{ 'Edit collection' | translate }}
-                </button>
+    @if (filteredCompilations$ | async; as compilations) {
+      @if (compilations.results.length > 0) {
+        <div class="entity-grid">
+          @for (element of compilations.results; track element._id) {
+            <div class="grid-item" [class.selected]="isSelected(element)">
+              <app-grid-element
+                #gridItem
+                [element]="element"
+                [disableTypeInfo]="false"
+                [disableNavigationOnClick]="true"
+              />
+
+              @if (!showPartakingCompilations()) {
+                <mat-icon class="material-symbols-filled card-icon">filter_none</mat-icon>
+                <!-- Advanced settings -->
                 <button
-                  mat-menu-item
-                  [disabled]="false"
-                  [routerLink]="['/annotate', 'compilation', element._id]"
+                  class="actionbutton"
+                  mat-icon-button
+                  [matMenuTriggerFor]="menu"
+                  color="primary"
                 >
-                  <mat-icon color="primary">location_on</mat-icon>
-                  {{ 'Annotate' | translate }}
+                  <mat-icon>more_horiz</mat-icon>
                 </button>
-                <!-- Just UI implementation, functionality comes with next update -->
-                <!-- <button mat-menu-item>
+                <mat-menu #menu="matMenu" yPosition="below">
+                  <button mat-menu-item [routerLink]="['/compilation', element._id]">
+                    <mat-icon class="material-symbols-outlined" color="primary">open_run</mat-icon>
+                    {{ 'Open' | translate }}
+                  </button>
+                  <button mat-menu-item (click)="openCompilationCreation(element)">
+                    <mat-icon color="primary">edit</mat-icon>
+                    {{ 'Edit collection' | translate }}
+                  </button>
+                  <button
+                    mat-menu-item
+                    [disabled]="false"
+                    [routerLink]="['/annotate', 'compilation', element._id]"
+                  >
+                    <mat-icon color="primary">location_on</mat-icon>
+                    {{ 'Annotate' | translate }}
+                  </button>
+                  <!-- Just UI implementation, functionality comes with next update -->
+                  <!-- <button mat-menu-item>
           <mat-icon color="primary">visibility</mat-icon>
           <span>{{ 'Visibility and access' | translate }}</span>
         </button> -->
-                <!-- <button mat-menu-item>
+                  <!-- <button mat-menu-item>
           <mat-icon color="primary">manage_accounts</mat-icon>
           <span>{{ 'Transfer ownership' | translate }}</span>
         </button> -->
-                <button mat-menu-item (click)="removeCompilationDialog(element)">
-                  <mat-icon color="warn">delete</mat-icon>
-                  {{ 'Delete' | translate }}
-                </button>
-              </mat-menu>
-            }
-          </div>
-        }
-      </div>
-    } @else {
-      @if (compilations.empty) {
-        <p>
-          {{
-            (showPartakingCompilations()
-              ? 'You are not partaking in any collections'
-              : 'You do not have any collections'
-            ) | translate
-          }}
-        </p>
+                  <button mat-menu-item (click)="removeCompilationDialog(element)">
+                    <mat-icon color="warn">delete</mat-icon>
+                    {{ 'Delete' | translate }}
+                  </button>
+                </mat-menu>
+              }
+            </div>
+          }
+        </div>
       } @else {
-        <p>
-          {{ 'No collections found matching your filter criteria' | translate }}
-        </p>
+        @if (compilations.empty) {
+          <p>
+            {{
+              (showPartakingCompilations()
+                ? 'You are not partaking in any collections'
+                : 'You do not have any collections'
+              ) | translate
+            }}
+          </p>
+        } @else {
+          <p>
+            {{ 'No collections found matching your filter criteria' | translate }}
+          </p>
+        }
       }
     }
-  }
-</div>
+  </div>
+</app-selection-container>

@@ -44,7 +44,7 @@ import {
 } from 'src/app/services';
 import { SelectionService } from 'src/app/services/selection.service';
 import { AddCompilationWizardComponent, AddEntityWizardComponent } from 'src/app/wizards';
-import { Collection, ICompilation, IEntity, isMetadataEntity } from 'src/common';
+import { Collection, ICompilation, IEntity, isEntity, isMetadataEntity } from 'src/common';
 import { IUserData, IUserDataWithoutData } from 'src/common/interfaces';
 import { SelectionBox } from '../selection-box/selection-box.component';
 import { SelectionContainerComponent } from 'src/app/components/selection/selection-container.component';
@@ -110,7 +110,7 @@ export class ProfileEntitiesComponent {
 
   private findRoleInSelection(role: 'editor' | 'viewer') {
     return computed(() => {
-      const selectedEntities = this.selectionService().selectedEntities();
+      const selectedEntities = this.selectionService().selectedElements();
       const user = this.user();
       if (!user?._id) return [];
       return selectedEntities.filter(entity => {
@@ -125,8 +125,9 @@ export class ProfileEntitiesComponent {
   );
 
   readonly singleSelectedEntity = computed(() => {
-    const entities = this.selectionService().selectedEntities();
-    return entities.length === 1 ? entities[0] : null;
+    const entities = this.selectionService().selectedElements();
+    if (entities.length !== 1 || !isEntity(entities[0])) return null;
+    return entities[0];
   });
 
   public pageEvent$ = new BehaviorSubject<PageEvent>({
@@ -226,7 +227,7 @@ export class ProfileEntitiesComponent {
   //Multi entities
 
   public openTransferOwnerDialog(entity?: IEntity) {
-    const selection = this.selectionService().selectedEntities();
+    const selection = this.selectionService().selectedElements();
     const data = entity ?? (selection.length === 1 ? selection[0] : selection);
 
     const dialogRef = this.dialog.open(ManageOwnershipComponent, {
@@ -243,7 +244,7 @@ export class ProfileEntitiesComponent {
   }
 
   public openVisibilityAndAccessDialog(entity?: IEntity) {
-    const selection = this.selectionService().selectedEntities();
+    const selection = this.selectionService().selectedElements();
     const data = entity ?? (selection.length === 1 ? selection[0] : selection);
 
     const dialogRef = this.dialog.open(VisibilityAndAccessDialogComponent, {
@@ -262,7 +263,7 @@ export class ProfileEntitiesComponent {
   }
 
   public openCompilationWizard() {
-    const selection = this.selectionService().selectedEntities();
+    const selection = this.selectionService().selectedElements();
     if (!selection || selection.length === 0) {
       this.snackbar.showMessage('Please select at least one entity to add to a compilation.', 5);
       return;
@@ -283,7 +284,7 @@ export class ProfileEntitiesComponent {
   }
 
   public async quickAddToCompilation(comp: ICompilation) {
-    const selection = this.selectionService().selectedEntities();
+    const selection = this.selectionService().selectedElements();
     if (!selection || selection.length === 0) {
       this.snackbar.showMessage('Please select at least one entity to add to the compilation.', 5);
       return;
@@ -307,14 +308,16 @@ export class ProfileEntitiesComponent {
 
   public async multiRemoveEntities() {
     const loginData = await this.helper.confirmWithAuth(
-      `Do you really want to delete these ${this.selectionService().selectedEntities().length} items?`,
+      `Do you really want to delete these ${this.selectionService().selectedElements().length} items?`,
       `Validate login before deleting.`,
     );
     if (!loginData) return;
     this.selectionService()
-      .selectedEntities()
+      .selectedElements()
       .forEach(entity => {
-        this.removeEntity(entity, loginData);
+        if (isEntity(entity)) {
+          this.removeEntity(entity, loginData);
+        }
       });
 
     this.selectionService().clearSelection();
@@ -381,10 +384,12 @@ export class ProfileEntitiesComponent {
       return;
     }
 
+    console.log(this.gridItems);
+
     const entityElementPairs =
-      this.paginatorEntitiesSignal()?.map((entity, index) => ({
-        entity,
-        element: this.gridItems.get(index)?.nativeElement as HTMLElement,
+      this.paginatorEntitiesSignal()?.map((element, index) => ({
+        element,
+        htmlElement: this.gridItems.get(index)?.nativeElement as HTMLElement,
       })) || [];
 
     this.selectionService().selectEntitiesInRect(selectionRect, entityElementPairs);

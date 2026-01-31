@@ -45,11 +45,9 @@ import {
 import { SelectionService } from 'src/app/services/selection.service';
 import { AddCompilationWizardComponent, AddEntityWizardComponent } from 'src/app/wizards';
 import { Collection, ICompilation, IEntity, isEntity, isMetadataEntity } from 'src/common';
-import { IUserData, IUserDataWithoutData } from 'src/common/interfaces';
-import { SelectionBox } from '../selection-box/selection-box.component';
 import { SelectionContainerComponent } from 'src/app/components/selection/selection-container.component';
 import { IsUserOfRolePipe } from 'src/app/pipes/is-user-of-role.pipe';
-const deepClone = DeepClone({ circles: true });
+// const deepClone = DeepClone({ circles: true });
 
 @Component({
   selector: 'app-profile-entities',
@@ -102,27 +100,21 @@ export class ProfileEntitiesComponent {
     this.selectionContainerSignal.set(container);
   }
 
-  editorEntitiesInSelection = this.findRoleInSelection('editor');
-  selectionHasEditorEntities = computed(() => this.editorEntitiesInSelection().length > 0);
-
-  viewerEntitiesInSelection = this.findRoleInSelection('viewer');
-  selectionHasViewerEntities = computed(() => this.viewerEntitiesInSelection().length > 0);
-
-  private findRoleInSelection(role: 'editor' | 'viewer') {
-    return computed(() => {
-      const selectedEntities = this.selectionService().selectedElements();
-      const user = this.user();
-      if (!user?._id) return [];
-      return selectedEntities.filter(entity => {
-        const userAccess = entity.access?.[user._id];
-        return userAccess?.role === role;
-      });
-    });
-  }
-
   public selectionService = computed<SelectionService>(
     () => this.selectionContainerSignal()?.selectionService ?? this._rootSelectionService,
   );
+
+  public user = toSignal(this.account.user$);
+
+  editorEntitiesInSelection = computed(() =>
+    this.selectionService().filterByRole(this.user()?._id, 'editor'),
+  );
+  selectionHasEditorEntities = computed(() => this.editorEntitiesInSelection().length > 0);
+
+  viewerEntitiesInSelection = computed(() =>
+    this.selectionService().filterByRole(this.user()?._id, 'viewer'),
+  );
+  selectionHasViewerEntities = computed(() => this.viewerEntitiesInSelection().length > 0);
 
   readonly singleSelectedEntity = computed(() => this.selectionService().singleSelectedEntity());
 
@@ -133,7 +125,6 @@ export class ProfileEntitiesComponent {
     length: Number.POSITIVE_INFINITY,
   });
 
-  public selectedEntities = signal<Set<IEntity>>(new Set());
   public userCompilations = toSignal(this.account.compilations$, { initialValue: null });
 
   isOwner(entity: IEntity): boolean {
@@ -155,8 +146,6 @@ export class ProfileEntitiesComponent {
       this.paginator()?.firstPage();
     });
   }
-
-  public user = toSignal(this.account.user$);
 
   filteredEntities$ = this.entityType$.pipe(
     switchMap(type =>
@@ -379,8 +368,6 @@ export class ProfileEntitiesComponent {
       this.snackbar.showMessage('You must be logged in to select entities.', 5);
       return;
     }
-
-    console.log(this.gridItems);
 
     const entityElementPairs =
       this.paginatorEntitiesSignal()?.map((element, index) => ({

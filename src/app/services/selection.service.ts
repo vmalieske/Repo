@@ -59,6 +59,11 @@ export class SelectionService {
       : element._id === currentElement._id;
   }
 
+  public filterByRole(userId: string | undefined, role: 'editor' | 'viewer') {
+    if (!userId) return [];
+    return this.selectedElements().filter(el => el.access?.[userId]?.role === role);
+  }
+
   public clearSelection() {
     this.selectedElementsSignal.set([]);
   }
@@ -67,9 +72,6 @@ export class SelectionService {
     selectionRect: DOMRect,
     pairs: { element: IEntity | ICompilation; htmlElement: HTMLElement }[],
   ) {
-    console.log(pairs);
-    console.log(selectionRect);
-
     const selected = pairs
       .filter(({ htmlElement: element }) =>
         this.rectsOverlap(selectionRect, element.getBoundingClientRect()),
@@ -77,7 +79,6 @@ export class SelectionService {
       .map(({ element: element }) => element);
 
     this.selectedElementsSignal.set(selected);
-    console.log(selected);
   }
 
   onMouseDown(event: MouseEvent) {

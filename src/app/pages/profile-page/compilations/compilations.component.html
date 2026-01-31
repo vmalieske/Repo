@@ -36,29 +36,45 @@
       <mat-menu #selectionMenu="matMenu" yPosition="below">
         <button
           mat-menu-item
-          [disabled]="!singleSelectedCompilation()"
+          [disabled]="!singleSelectedCompilation() || selectionHasViewerCompilations()"
           [routerLink]="['/compilation', singleSelectedCompilation()?._id]"
         >
           <mat-icon class="material-symbols-outlined" color="primary">open_run</mat-icon>
           {{ 'Open' | translate }}
         </button>
-        <button mat-menu-item [disabled]="!singleSelectedCompilation()">
+        <button
+          mat-menu-item
+          [disabled]="!singleSelectedCompilation() || selectionHasViewerCompilations()"
+          (click)="openCompilationCreation(singleSelectedCompilation()!)"
+        >
           <mat-icon color="primary">edit</mat-icon>
           {{ 'Edit collection' | translate }}
         </button>
-        <button mat-menu-item [disabled]="!singleSelectedCompilation()">
+        <button
+          mat-menu-item
+          [disabled]="!singleSelectedCompilation() || selectionHasViewerCompilations()"
+          [routerLink]="['/annotate', 'compilation', singleSelectedCompilation()?._id]"
+        >
           <mat-icon color="primary">location_on</mat-icon>
           {{ 'Annotate' | translate }}
         </button>
-        <button mat-menu-item>
+        <button
+          mat-menu-item
+          [disabled]="selectionHasEditorCompilations() || selectionHasViewerCompilations()"
+          (click)="openVisibilityAndAccessDialog()"
+        >
           <mat-icon color="primary">visibility</mat-icon>
           <span>{{ 'Visibility and access' | translate }}</span>
         </button>
-        <button mat-menu-item>
+        <button
+          mat-menu-item
+          [disabled]="selectionHasEditorCompilations() || selectionHasViewerCompilations()"
+          (click)="openTransferOwnerDialog()"
+        >
           <mat-icon color="primary">manage_accounts</mat-icon>
           <span>{{ 'Transfer ownership' | translate }}</span>
         </button>
-        <button mat-menu-item>
+        <button mat-menu-item (click)="multiRemoveCompilations()">
           <mat-icon color="warn">delete_forever</mat-icon>
           <span>{{ 'Delete' | translate }}</span>
         </button>
@@ -106,16 +122,19 @@
                     <mat-icon color="primary">location_on</mat-icon>
                     {{ 'Annotate' | translate }}
                   </button>
-                  <!-- Just UI implementation, functionality comes with next update -->
-                  <!-- <button mat-menu-item>
-          <mat-icon color="primary">visibility</mat-icon>
-          <span>{{ 'Visibility and access' | translate }}</span>
-        </button> -->
-                  <!-- <button mat-menu-item>
-          <mat-icon color="primary">manage_accounts</mat-icon>
-          <span>{{ 'Transfer ownership' | translate }}</span>
-        </button> -->
-                  <button mat-menu-item (click)="removeCompilationDialog(element)">
+                  <button mat-menu-item (click)="openVisibilityAndAccessDialog(element)">
+                    <mat-icon color="primary">visibility</mat-icon>
+                    <span>{{ 'Visibility and access' | translate }}</span>
+                  </button>
+                  <button
+                    mat-menu-item
+                    (click)="openTransferOwnerDialog(element)"
+                    [disabled]="!(element | isUserOfRole: 'owner' : user())"
+                  >
+                    <mat-icon color="primary">manage_accounts</mat-icon>
+                    <span>{{ 'Transfer ownership' | translate }}</span>
+                  </button>
+                  <button mat-menu-item (click)="singleRemoveCompilation(element)">
                     <mat-icon color="warn">delete</mat-icon>
                     {{ 'Delete' | translate }}
                   </button>

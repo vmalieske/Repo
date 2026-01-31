@@ -20,10 +20,12 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { RouterLink } from '@angular/router';
-import { combineLatest, map, switchMap } from 'rxjs';
+import { combineLatest, firstValueFrom, map, switchMap } from 'rxjs';
 
 import { GridElementComponent } from 'src/app/components/grid-element/grid-element.component';
 import { SelectionContainerComponent } from 'src/app/components/selection/selection-container.component';
+import { VisibilityAndAccessDialogComponent } from 'src/app/dialogs';
+import { ManageOwnershipComponent } from 'src/app/dialogs/manage-ownership/manage-ownership.component';
 import { TranslatePipe } from 'src/app/pipes';
 import {
   AccountService,
@@ -34,7 +36,8 @@ import {
 import { CacheManagerService } from 'src/app/services/cache-manager.service';
 import { SelectionService } from 'src/app/services/selection.service';
 import { AddCompilationWizardComponent } from 'src/app/wizards';
-import { Collection, ICompilation, isCompilation } from 'src/common';
+import { Collection, EntityAccessRole, ICompilation, IEntity, isCompilation } from 'src/common';
+import { IsUserOfRolePipe } from '../../../pipes/is-user-of-role.pipe';
 
 @Component({
   selector: 'app-profile-compilations',
@@ -54,6 +57,7 @@ import { Collection, ICompilation, isCompilation } from 'src/common';
     TranslatePipe,
     AsyncPipe,
     SelectionContainerComponent,
+    IsUserOfRolePipe,
   ],
 })
 export class ProfileCompilationsComponent {
@@ -76,6 +80,26 @@ export class ProfileCompilationsComponent {
 
   searchText = input<string>('');
   searchText$ = toObservable(this.searchText);
+
+  user = toSignal(this.#account.user$);
+
+  editorCompilationsInSelection = computed(() =>
+    this.selectionService().filterByRole(this.user()?._id, 'editor'),
+  );
+  selectionHasEditorCompilations = computed(() => this.editorCompilationsInSelection().length > 0);
+
+  viewerCompilationsInSelection = computed(() =>
+    this.selectionService().filterByRole(this.user()?._id, 'viewer'),
+  );
+  selectionHasViewerCompilations = computed(() => this.viewerCompilationsInSelection().length > 0);
+
+  isOwner(compilation: ICompilation): boolean {
+    const user = this.user();
+    if (!user?._id) return false;
+
+    const userAccess = compilation.access?.[user._id];
+    return userAccess?.role === 'owner';
+  }
 
   public selectionService = computed<SelectionService>(
     () => this.#selectionContainerSignal()?.selectionService ?? this.#rootSelectionService,
@@ -101,6 +125,10 @@ export class ProfileCompilationsComponent {
   ).pipe(
     map(([text, showPartaking, userCompilations, partakingCompilations]) => {
       const compilations = showPartaking ? partakingCompilations : userCompilations;
+
+      /* Change owner of legacy-collections, when accessfield is empty */
+      if (compilations) this.tryAccessField(compilations);
+
       if (!compilations || compilations.length === 0) return { empty: true, results: [] };
       if (!text || text.trim().length === 0) return { empty: false, results: compilations };
       text = text.trim().toLowerCase();
@@ -116,7 +144,6 @@ export class ProfileCompilationsComponent {
   );
 
   filteredCompilationsSignal = toSignal(this.filteredCompilations$);
-  user = toSignal(this.#account.user$);
 
   readonly singleSelectedCompilation = computed(() =>
     this.selectionService().singleSelectedCompilation(),
@@ -135,21 +162,90 @@ export class ProfileCompilationsComponent {
       });
   }
 
-  public async removeCompilationDialog(compilation: ICompilation) {
+  public openTransferOwnerDialog(compilation?: ICompilation) {
+    const selection = this.selectionService().selectedElements();
+    const data = compilation ?? (selection.length === 1 ? selection[0] : selection);
+
+    const dialogRef = this.#dialog.open(ManageOwnershipComponent, {
+      data: data,
+      disableClose: false,
+    });
+
+    dialogRef
+      .afterClosed()
+      .toPromise()
+      .then(result => {
+        this.#account.updateTrigger$.next(Collection.compilation);
+      });
+  }
+
+  public openVisibilityAndAccessDialog(compilation?: ICompilation) {
+    const selection = this.selectionService().selectedElements();
+    const data = compilation ?? (selection.length === 1 ? selection[0] : selection);
+
+    const dialogRef = this.#dialog.open(VisibilityAndAccessDialogComponent, {
+      data: data,
+      disableClose: true,
+    });
+
+    firstValueFrom(dialogRef.afterClosed()).then(
+      (result: null | undefined | IEntity | ICompilation) => {
+        if (!result) return;
+        this.#account.updateTrigger$.next(Collection.compilation);
+      },
+    );
+
+    this.selectionService().clearSelection();
+  }
+
+  public async singleRemoveCompilation(compilation: ICompilation) {
     const loginData = await this.#helper.confirmWithAuth(
       `Do you really want to delete ${compilation.name}?`,
       `Validate login before deleting: ${compilation.name}`,
     );
     if (!loginData) return;
-    const { username, password } = loginData;
+    this.removeCompilation(compilation, loginData);
+  }
 
-    // Delete
-    this.#backend
-      .deleteRequest(compilation._id, 'compilation', username, password)
-      .then(result => {
-        this.#account.updateTrigger$.next(Collection.compilation);
-      })
-      .catch(e => console.error(e));
+  public async multiRemoveCompilations() {
+    const loginData = await this.#helper.confirmWithAuth(
+      `Do you really want to delete these ${this.selectionService().selectedElements().length}?`,
+      `Validate login before deleting.`,
+    );
+    if (!loginData) return;
+    this.selectionService()
+      .selectedElements()
+      .forEach(compilation => {
+        if (isCompilation(compilation)) {
+          this.removeCompilation(compilation, loginData);
+        }
+      });
+
+    this.selectionService().clearSelection();
+  }
+
+  private async removeCompilation(
+    compilation: ICompilation,
+    loginData: { username: string; password: string },
+  ) {
+    const { username, password } = loginData;
+    const isOwner = this.isOwner(compilation);
+
+    if (isOwner) {
+      this.#backend
+        .deleteRequest(compilation._id, 'compilation', username, password)
+        .then(result => {
+          this.#account.updateTrigger$.next(Collection.compilation);
+        })
+        .catch(e => console.error(e));
+    } else {
+      this.#backend
+        .removeSelfFromAccess('compilation', compilation._id)
+        .then(result => {
+          this.#account.updateTrigger$.next(Collection.compilation);
+        })
+        .catch(e => console.error(e));
+    }
   }
 
   //Selection
@@ -193,8 +289,6 @@ export class ProfileCompilationsComponent {
       return;
     }
 
-    console.log(this.gridItems);
-
     const compElementPairs =
       this.filteredCompilationsSignal()?.results.map((element, index) => ({
         element,
@@ -203,4 +297,39 @@ export class ProfileCompilationsComponent {
 
     this.selectionService().selectEntitiesInRect(selectionRect, compElementPairs);
   }
+
+  /* Helper until access-field is used */
+  tryAccessField(
+    data?:
+      | IEntity<Record<string, unknown>, false>
+      | ICompilation<false>
+      | (IEntity<Record<string, unknown>, false> | ICompilation<false>)[],
+  ) {
+    if (!data) return;
+    const items = Array.isArray(data) ? data : [data];
+
+    const compilationsWithEmptyAccess = items.filter(
+      (item): item is ICompilation<false> => item && item.access == null,
+    );
+
+    compilationsWithEmptyAccess.forEach(comp => this.makeCreatorOwnerIfAccessIsUnused(comp));
+  }
+
+  makeCreatorOwnerIfAccessIsUnused(compilation: ICompilation) {
+    const creator = compilation.creator;
+    if (!creator) return;
+
+    if (!compilation.access) {
+      compilation.access = {};
+    }
+
+    compilation.access![creator._id] = {
+      _id: creator._id,
+      fullname: creator.fullname,
+      username: creator.username,
+      role: EntityAccessRole.owner,
+    };
+  }
+
+  /* Helper End*/
 }

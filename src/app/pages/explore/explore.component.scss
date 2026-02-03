@@ -159,3 +159,19 @@ div.loading-overlay {
 .pseudo-disabled mat-icon {
   opacity: 0.38;
 }
+
+.grid-item {
+  cursor: context-menu;
+  z-index: 1;
+  border: solid 4px transparent;
+  border-radius: 0.6rem;
+
+  &.selected {
+    background-color: lightblue;
+    border-color: var(--brand-color);
+  }
+}
+
+.grid-item.selected ::ng-deep .title:after {
+  background: transparent;
+}

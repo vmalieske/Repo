@@ -33,51 +33,76 @@
   </aside>
 </app-tabs>
 
-<div class="entity-grid">
-  <div class="loading-overlay" [class.visible]="isWaitingForExploreResult()">
-    <p>{{ 'Loading results. This can sometimes take a moment' | translate }}</p>
-    <mat-spinner mode="indeterminate" />
-  </div>
-
-  @for (element of filteredResults; track element._id) {
-    <div class="grid-item">
-      <app-grid-element [element]="element" (updateSelectedObject)="selectObjectId = $event" />
-      <mat-icon class="material-symbols-filled card-icon">deployed_code</mat-icon>
-      <!-- Advanced settings -->
-      <button class="actionbutton" mat-icon-button [matMenuTriggerFor]="menu" color="primary">
+<app-selection-container #sc [actionsTemplate]="selectionActions">
+  <div (mousedown)="onMouseDown($event)" (mousemove)="onMouseMove($event)" (mouseup)="onMouseUp()">
+    <ng-template #selectionActions>
+      <button mat-icon-button color="primary" [matMenuTriggerFor]="selectionMenu">
         <mat-icon>more_horiz</mat-icon>
       </button>
-      <mat-menu #menu="matMenu">
-        <a mat-menu-item [routerLink]="['/entity', element._id]">
+      <mat-menu #selectionMenu="matMenu" yPosition="below">
+        <button mat-menu-item>
           <mat-icon class="material-symbols-outlined" color="primary">open_run</mat-icon>
-          <span>{{ 'Open' | translate }}</span>
-        </a>
-        @if (selectedTab() === 'objects') {
-          <button
-            mat-menu-item
-            [matMenuTriggerFor]="quickAddToCollectionMenu"
-            [class.pseudo-disabled]="!isAuthenticated()"
-          >
-            <mat-icon color="primary">library_add</mat-icon>
-            <span>{{ 'Add to collection' | translate }}</span>
-          </button>
-        }
+          {{ 'Open' | translate }}
+        </button>
+        <button mat-menu-item>
+          <mat-icon color="primary">edit</mat-icon>
+          {{ 'Edit collection' | translate }}
+        </button>
       </mat-menu>
-    </div>
-  } @empty {
-    <div class="no-results">
-      <p>{{ 'No results found' | translate }}</p>
-      @if (numFilterOptions() > 0 || searchText().length > 0) {
-        <p>
-          {{
-            'Try clearing some filters or changing the search text to find more results.'
-              | translate
-          }}
-        </p>
+    </ng-template>
+
+    <div class="entity-grid">
+      <div class="loading-overlay" [class.visible]="isWaitingForExploreResult()">
+        <p>{{ 'Loading results. This can sometimes take a moment' | translate }}</p>
+        <mat-spinner mode="indeterminate" />
+      </div>
+
+      @for (element of filteredResults; track element._id) {
+        <div class="grid-item" [class.selected]="isSelected(element)">
+          <app-grid-element
+            #gridItem
+            [element]="element"
+            (updateSelectedObject)="selectObjectId = $event"
+            (click)="addCompilationToSelection(element, $event)"
+          />
+          <mat-icon class="material-symbols-filled card-icon">deployed_code</mat-icon>
+          <!-- Advanced settings -->
+          <button class="actionbutton" mat-icon-button [matMenuTriggerFor]="menu" color="primary">
+            <mat-icon>more_horiz</mat-icon>
+          </button>
+          <mat-menu #menu="matMenu">
+            <a mat-menu-item [routerLink]="['/entity', element._id]">
+              <mat-icon class="material-symbols-outlined" color="primary">open_run</mat-icon>
+              <span>{{ 'Open' | translate }}</span>
+            </a>
+            @if (selectedTab() === 'objects') {
+              <button
+                mat-menu-item
+                [matMenuTriggerFor]="quickAddToCollectionMenu"
+                [class.pseudo-disabled]="!isAuthenticated()"
+              >
+                <mat-icon color="primary">library_add</mat-icon>
+                <span>{{ 'Add to collection' | translate }}</span>
+              </button>
+            }
+          </mat-menu>
+        </div>
+      } @empty {
+        <div class="no-results">
+          <p>{{ 'No results found' | translate }}</p>
+          @if (numFilterOptions() > 0 || searchText().length > 0) {
+            <p>
+              {{
+                'Try clearing some filters or changing the search text to find more results.'
+                  | translate
+              }}
+            </p>
+          }
+        </div>
       }
     </div>
-  }
-</div>
+  </div>
+</app-selection-container>
 
 <div class="paginator-container">
   @if (paginator().totalItemCount >= 0) {

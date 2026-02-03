@@ -295,7 +295,7 @@ export class ProfileCompilationsComponent {
         htmlElement: this.gridItems.get(index)?.nativeElement as HTMLElement,
       })) || [];
 
-    this.selectionService().selectEntitiesInRect(selectionRect, compElementPairs);
+    this.selectionService().selectElementsInRect(selectionRect, compElementPairs);
   }
 
   /* Helper until access-field is used */

@@ -122,7 +122,8 @@
                     <mat-icon color="primary">location_on</mat-icon>
                     {{ 'Annotate' | translate }}
                   </button>
-                  <button mat-menu-item (click)="openVisibilityAndAccessDialog(element)">
+                  <!-- Wait for Access-Changes in Backend -->
+                  <!-- <button mat-menu-item (click)="openVisibilityAndAccessDialog(element)">
                     <mat-icon color="primary">visibility</mat-icon>
                     <span>{{ 'Visibility and access' | translate }}</span>
                   </button>
@@ -133,7 +134,7 @@
                   >
                     <mat-icon color="primary">manage_accounts</mat-icon>
                     <span>{{ 'Transfer ownership' | translate }}</span>
-                  </button>
+                  </button> -->
                   <button mat-menu-item (click)="singleRemoveCompilation(element)">
                     <mat-icon color="warn">delete</mat-icon>
                     {{ 'Delete' | translate }}

@@ -375,6 +375,6 @@ export class ProfileEntitiesComponent {
         htmlElement: this.gridItems.get(index)?.nativeElement as HTMLElement,
       })) || [];
 
-    this.selectionService().selectEntitiesInRect(selectionRect, entityElementPairs);
+    this.selectionService().selectElementsInRect(selectionRect, entityElementPairs);
   }
 }

@@ -1,4 +1,15 @@
-import { Component, computed, effect, inject, OnInit, signal } from '@angular/core';
+import {
+  Component,
+  computed,
+  effect,
+  ElementRef,
+  inject,
+  OnInit,
+  QueryList,
+  signal,
+  ViewChild,
+  ViewChildren,
+} from '@angular/core';
 import { Meta, Title } from '@angular/platform-browser';
 import { NavigationEnd, Router, RouterModule } from '@angular/router';
 
@@ -48,6 +59,8 @@ import {
   SortByOptions,
   SortOrder,
 } from './shared-types';
+import { SelectionContainerComponent } from 'src/app/components/selection/selection-container.component';
+import { SelectionService } from 'src/app/services/selection.service';
 
 type Pagination = {
   pageCount: number;
@@ -75,11 +88,23 @@ type Pagination = {
     MathPipe,
     TabsComponent,
     SearchBarComponent,
+    SelectionContainerComponent,
   ],
 })
 export class ExploreComponent implements OnInit {
   #sidenavService = inject(SidenavService);
   #sidenavOptionsService = inject(ExploreFilterSidenavOptionsService);
+  #rootSelectionService = inject(SelectionService);
+  #selectionContainerSignal = signal<SelectionContainerComponent | undefined>(undefined);
+
+  @ViewChildren('gridItem', { read: ElementRef }) gridItems!: QueryList<ElementRef>;
+  @ViewChild('sc') set selectionContainer(container: SelectionContainerComponent | undefined) {
+    this.#selectionContainerSignal.set(container);
+  }
+
+  public selectionService = computed<SelectionService>(
+    () => this.#selectionContainerSignal()?.selectionService ?? this.#rootSelectionService,
+  );
 
   private metaTitle = 'Kompakkt – Explore';
   private metaTags = [
@@ -398,6 +423,48 @@ export class ExploreComponent implements OnInit {
     if (result) {
       this.selectedFilterOptions.set(result);
     }
+  }
+
+  public isSelected(element: ICompilation | IEntity): boolean {
+    return this.selectionService().isSelected(element);
+  }
+
+  public addCompilationToSelection(element: ICompilation | IEntity, event: MouseEvent) {
+    this.selectionService().addToSelection(element, event);
+  }
+
+  onMouseDown(event: MouseEvent) {
+    const target = event.target as HTMLElement;
+
+    const hasSelectionBoxParent = !!target.closest('.selection');
+    const hasForbiddenTagName = ['BUTTON', 'INPUT', 'MAT-ICON', 'MAT-MENU-ITEM'].includes(
+      target.tagName,
+    );
+    if (hasSelectionBoxParent || hasForbiddenTagName) {
+      return;
+    }
+
+    if (!event.shiftKey && !event.ctrlKey) {
+      this.selectionService().onMouseDown(event);
+    }
+  }
+
+  onMouseMove(event: MouseEvent) {
+    this.selectionService().onMouseMove(event);
+  }
+
+  onMouseUp() {
+    const selectionRect = this.selectionService().getCurrentBoxRect();
+    this.selectionService().stopDragging();
+    if (!selectionRect) return;
+
+    const compElementPairs =
+      this.filteredResults.map((element, index) => ({
+        element,
+        htmlElement: this.gridItems.get(index)?.nativeElement as HTMLElement,
+      })) || [];
+
+    this.selectionService().selectElementsInRect(selectionRect, compElementPairs);
   }
 
   ngOnInit() {

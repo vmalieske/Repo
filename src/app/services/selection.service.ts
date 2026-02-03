@@ -68,7 +68,7 @@ export class SelectionService {
     this.selectedElementsSignal.set([]);
   }
 
-  selectEntitiesInRect(
+  selectElementsInRect(
     selectionRect: DOMRect,
     pairs: { element: IEntity | ICompilation; htmlElement: HTMLElement }[],
   ) {

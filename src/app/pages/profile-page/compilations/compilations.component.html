@@ -58,7 +58,7 @@
           <mat-icon color="primary">location_on</mat-icon>
           {{ 'Annotate' | translate }}
         </button>
-        <button
+        <!-- <button
           mat-menu-item
           [disabled]="selectionHasEditorCompilations() || selectionHasViewerCompilations()"
           (click)="openVisibilityAndAccessDialog()"
@@ -73,7 +73,7 @@
         >
           <mat-icon color="primary">manage_accounts</mat-icon>
           <span>{{ 'Transfer ownership' | translate }}</span>
-        </button>
+        </button> -->
         <button mat-menu-item (click)="multiRemoveCompilations()">
           <mat-icon color="warn">delete_forever</mat-icon>
           <span>{{ 'Delete' | translate }}</span>

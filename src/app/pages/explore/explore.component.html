@@ -36,17 +36,27 @@
 <app-selection-container #sc [actionsTemplate]="selectionActions">
   <div (mousedown)="onMouseDown($event)" (mousemove)="onMouseMove($event)" (mouseup)="onMouseUp()">
     <ng-template #selectionActions>
-      <button mat-icon-button color="primary" [matMenuTriggerFor]="selectionMenu">
+      <button mat-icon-button color="primary" [matMenuTriggerFor]="getMenuForSelected()">
         <mat-icon>more_horiz</mat-icon>
       </button>
-      <mat-menu #selectionMenu="matMenu" yPosition="below">
-        <button mat-menu-item>
+      <mat-menu #entityMenu="matMenu" yPosition="below">
+        <button mat-menu-item [class.pseudo-disabled]="!selectionService().singleSelected()">
           <mat-icon class="material-symbols-outlined" color="primary">open_run</mat-icon>
           {{ 'Open' | translate }}
         </button>
-        <button mat-menu-item>
-          <mat-icon color="primary">edit</mat-icon>
-          {{ 'Edit collection' | translate }}
+        <button
+          mat-menu-item
+          [matMenuTriggerFor]="quickAddToCollectionMenu"
+          [class.pseudo-disabled]="!isAuthenticated()"
+        >
+          <mat-icon color="primary">library_add</mat-icon>
+          <span>{{ 'Add to collection' | translate }}</span>
+        </button>
+      </mat-menu>
+      <mat-menu #compilationMenu="matMenu" yPosition="below">
+        <button mat-menu-item [class.pseudo-disabled]="!selectionService().singleSelected()">
+          <mat-icon class="material-symbols-outlined" color="primary">open_run</mat-icon>
+          {{ 'Open' | translate }}
         </button>
       </mat-menu>
     </ng-template>

@@ -18,7 +18,7 @@ import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatButtonModule } from '@angular/material/button';
 import { MatOptionModule } from '@angular/material/core';
 import { MatIconModule } from '@angular/material/icon';
-import { MatMenuModule } from '@angular/material/menu';
+import { MatMenu, MatMenuModule } from '@angular/material/menu';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import {
@@ -44,7 +44,7 @@ import {
   QuickAddService,
 } from 'src/app/services';
 import { SidenavService } from 'src/app/services/sidenav.service';
-import { ICompilation, IEntity, isCompilation } from 'src/common';
+import { ICompilation, IEntity, isCompilation, isEntity } from 'src/common';
 import { GridElementComponent } from '../../components/grid-element/grid-element.component';
 import { ExploreFilterOption } from './explore-filter-option/explore-filter-option.component';
 import {
@@ -101,6 +101,8 @@ export class ExploreComponent implements OnInit {
   @ViewChild('sc') set selectionContainer(container: SelectionContainerComponent | undefined) {
     this.#selectionContainerSignal.set(container);
   }
+  @ViewChild('entityMenu') entityMenu!: MatMenu;
+  @ViewChild('compilationMenu') compilationMenu!: MatMenu;
 
   public selectionService = computed<SelectionService>(
     () => this.#selectionContainerSignal()?.selectionService ?? this.#rootSelectionService,
@@ -431,6 +433,15 @@ export class ExploreComponent implements OnInit {
 
   public addCompilationToSelection(element: ICompilation | IEntity, event: MouseEvent) {
     this.selectionService().addToSelection(element, event);
+  }
+
+  public getMenuForSelected(): MatMenu | null {
+    const selection = this.selectionService().selectedElements();
+
+    if (selection.every(isEntity)) return this.entityMenu;
+    if (selection.every(isCompilation)) return this.compilationMenu;
+
+    return null;
   }
 
   onMouseDown(event: MouseEvent) {

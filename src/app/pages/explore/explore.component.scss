@@ -4,10 +4,9 @@
 :host {
   display: flex;
   flex-direction: column;
-  max-width: 1600px;
   min-height: 90vh;
   width: 100%;
-  margin: 0 auto;
+  margin: 0;
   padding: 32px 16px;
   box-sizing: border-box;
   gap: 24px;
@@ -17,6 +16,16 @@
     color: var(--brand-color);
     grid-column: span 4;
   }
+}
+
+:host > h1.page-heading,
+:host > app-tabs,
+:host > .paginator-container {
+  max-width: var(--content-max-width);
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  box-sizing: border-box;
 }
 
 app-tabs {

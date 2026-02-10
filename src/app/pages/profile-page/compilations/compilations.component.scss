@@ -56,19 +56,3 @@ span.mat-content {
   align-items: stretch;
   gap: 8px;
 }
-
-.grid-item {
-  cursor: context-menu;
-  z-index: 1;
-  border: solid 4px transparent;
-  border-radius: 0.6rem;
-
-  &.selected {
-    background-color: lightblue;
-    border-color: var(--brand-color);
-  }
-}
-
-.grid-item.selected ::ng-deep .title:after {
-  background: transparent;
-}

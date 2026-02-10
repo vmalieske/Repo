@@ -101,9 +101,15 @@
           </mat-select>
         }
 
-        <button mat-icon-button>
-          <mat-icon (click)="removeUser(access)" color="warn">close</mat-icon>
-        </button>
+        @if (isLastOwner(access._id)) {
+          <button mat-icon-button [disabled]="isLastOwner(access._id)">
+            <mat-icon>close</mat-icon>
+          </button>
+        } @else {
+          <button mat-icon-button>
+            <mat-icon (click)="removeUser(access)" color="warn">close</mat-icon>
+          </button>
+        }
       </div>
     }
   </form>

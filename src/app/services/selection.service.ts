@@ -26,6 +26,10 @@ export class SelectionService {
   private startY: number = 0;
   public selectionBoxStyle = signal<{ [key: string]: string }>({});
 
+  public hasSelection: Signal<boolean> = computed(() => {
+    return this.selectedElements().length > 0;
+  });
+
   public isSelected(element: IEntity | ICompilation): boolean {
     return this.selectedElementsSignal().some(currentElement =>
       this.isSameElement(element, currentElement),

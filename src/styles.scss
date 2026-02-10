@@ -480,6 +480,11 @@ app-annotate {
     position: relative !important;
     width: 100%;
 
+    cursor: context-menu;
+    z-index: 1;
+    border: solid 4px transparent;
+    border-radius: 0.6rem;
+
     .card-icon {
       position: absolute !important;
       top: 16px;
@@ -508,6 +513,11 @@ app-annotate {
         height: 16px;
         line-height: 16px;
       }
+    }
+
+    &.selected {
+      background-color: lightblue;
+      border-color: var(--brand-color);
     }
   }
 }

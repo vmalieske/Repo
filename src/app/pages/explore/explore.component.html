@@ -54,7 +54,7 @@
         </button>
       </mat-menu>
       <mat-menu #compilationMenu="matMenu" yPosition="below">
-        <button mat-menu-item [class.pseudo-disabled]="!selectionService().singleSelected()">
+        <button mat-menu-item [disabled]="!selectionService().singleSelected()">
           <mat-icon class="material-symbols-outlined" color="primary">open_run</mat-icon>
           {{ 'Open' | translate }}
         </button>
@@ -77,11 +77,17 @@
           />
           <mat-icon class="material-symbols-filled card-icon">deployed_code</mat-icon>
           <!-- Advanced settings -->
-          <button class="actionbutton" mat-icon-button [matMenuTriggerFor]="menu" color="primary">
+          <button
+            class="actionbutton"
+            mat-icon-button
+            [matMenuTriggerFor]="menu"
+            color="primary"
+            [disabled]="selectionService().hasSelection()"
+          >
             <mat-icon>more_horiz</mat-icon>
           </button>
           <mat-menu #menu="matMenu">
-            <a mat-menu-item [routerLink]="['/entity', element._id]">
+            <a mat-menu-item [routerLink]="getElementRoute(element)">
               <mat-icon class="material-symbols-outlined" color="primary">open_run</mat-icon>
               <span>{{ 'Open' | translate }}</span>
             </a>

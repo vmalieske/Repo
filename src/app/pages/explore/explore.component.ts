@@ -159,6 +159,7 @@ export class ExploreComponent implements OnInit {
   public updateSelectedTab(tab: string) {
     if (isExploreCategory(tab)) {
       this.selectedTab.set(tab as ExploreCategory);
+      this.selectionService().clearSelection();
     }
   }
   public selectedTab = signal<ExploreCategory>(
@@ -323,6 +324,10 @@ export class ExploreComponent implements OnInit {
 
   public quickAddToCompilation(compilation: ICompilation) {
     this.quickAdd.quickAddToCompilation(compilation, this.selectObjectId);
+  }
+
+  public getElementRoute(element: IEntity | ICompilation): string[] {
+    return isEntity(element) ? ['/entity', element._id] : ['/compilation', element._id];
   }
 
   public updateFilter() {

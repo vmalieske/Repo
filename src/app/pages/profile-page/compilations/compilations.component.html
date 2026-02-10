@@ -102,6 +102,7 @@
                   mat-icon-button
                   [matMenuTriggerFor]="menu"
                   color="primary"
+                  [disabled]="selectionService().hasSelection()"
                 >
                   <mat-icon>more_horiz</mat-icon>
                 </button>

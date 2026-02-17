@@ -21,9 +21,10 @@
 @import url('./assets/fonts/MaterialSymbols/MaterialSymbolsOutlined.scss');
 
 :root {
-  --font-stack: 'Open Sans', Frutiger, 'Frutiger Linotype', Univers, Calibri, 'Gill Sans',
-    'Gill Sans MT', 'Myriad Pro', Myriad, 'DejaVu Sans Condensed', 'Liberation Sans',
-    'Nimbus Sans L', Tahoma, Geneva, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-stack:
+    'Open Sans', Frutiger, 'Frutiger Linotype', Univers, Calibri, 'Gill Sans', 'Gill Sans MT',
+    'Myriad Pro', Myriad, 'DejaVu Sans Condensed', 'Liberation Sans', 'Nimbus Sans L', Tahoma,
+    Geneva, 'Helvetica Neue', Helvetica, Arial, sans-serif;
   --drop-shadow: drop-shadow(0 0.1rem 0.1rem rgba(0, 0, 0, 0.25));
   --brand-color: #009ee0;
   --warning-color: #e91e63;
@@ -34,6 +35,8 @@
   --mat-select-trigger-text-size: 12px;
   --mdc-filled-text-field-label-text-size: 12px;
   --mat-form-field-container-text-size: 12px;
+
+  --content-max-width: 1600px;
 }
 
 /* Font smoothing */
@@ -477,6 +480,11 @@ app-annotate {
     position: relative !important;
     width: 100%;
 
+    cursor: context-menu;
+    z-index: 1;
+    border: solid 4px transparent;
+    border-radius: 0.6rem;
+
     .card-icon {
       position: absolute !important;
       top: 16px;
@@ -505,6 +513,11 @@ app-annotate {
         height: 16px;
         line-height: 16px;
       }
+    }
+
+    &.selected {
+      background-color: lightblue;
+      border-color: var(--brand-color);
     }
   }
 }
@@ -898,4 +911,10 @@ div.option-count-badge {
   .mat-mdc-chip {
     margin: 0 !important;
   }
+}
+
+.paginator {
+  max-width: 1600px;
+  width: 100%;
+  margin-inline: auto;
 }

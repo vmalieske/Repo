@@ -1,4 +1,15 @@
-import { Component, computed, effect, inject, OnInit, signal } from '@angular/core';
+import {
+  Component,
+  computed,
+  effect,
+  ElementRef,
+  inject,
+  OnInit,
+  QueryList,
+  signal,
+  ViewChild,
+  ViewChildren,
+} from '@angular/core';
 import { Meta, Title } from '@angular/platform-browser';
 import { NavigationEnd, Router, RouterModule } from '@angular/router';
 
@@ -7,7 +18,7 @@ import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatButtonModule } from '@angular/material/button';
 import { MatOptionModule } from '@angular/material/core';
 import { MatIconModule } from '@angular/material/icon';
-import { MatMenuModule } from '@angular/material/menu';
+import { MatMenu, MatMenuModule } from '@angular/material/menu';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import {
@@ -33,7 +44,7 @@ import {
   QuickAddService,
 } from 'src/app/services';
 import { SidenavService } from 'src/app/services/sidenav.service';
-import { ICompilation, IEntity, isCompilation } from 'src/common';
+import { ICompilation, IEntity, isCompilation, isEntity } from 'src/common';
 import { GridElementComponent } from '../../components/grid-element/grid-element.component';
 import { ExploreFilterOption } from './explore-filter-option/explore-filter-option.component';
 import {
@@ -48,6 +59,8 @@ import {
   SortByOptions,
   SortOrder,
 } from './shared-types';
+import { SelectionContainerComponent } from 'src/app/components/selection/selection-container.component';
+import { SelectionService } from 'src/app/services/selection.service';
 
 type Pagination = {
   pageCount: number;
@@ -75,11 +88,25 @@ type Pagination = {
     MathPipe,
     TabsComponent,
     SearchBarComponent,
+    SelectionContainerComponent,
   ],
 })
 export class ExploreComponent implements OnInit {
   #sidenavService = inject(SidenavService);
   #sidenavOptionsService = inject(ExploreFilterSidenavOptionsService);
+  #rootSelectionService = inject(SelectionService);
+  #selectionContainerSignal = signal<SelectionContainerComponent | undefined>(undefined);
+
+  @ViewChildren('gridItem', { read: ElementRef }) gridItems!: QueryList<ElementRef>;
+  @ViewChild('sc') set selectionContainer(container: SelectionContainerComponent | undefined) {
+    this.#selectionContainerSignal.set(container);
+  }
+  @ViewChild('entityMenu') entityMenu!: MatMenu;
+  @ViewChild('compilationMenu') compilationMenu!: MatMenu;
+
+  public selectionService = computed<SelectionService>(
+    () => this.#selectionContainerSignal()?.selectionService ?? this.#rootSelectionService,
+  );
 
   private metaTitle = 'Kompakkt – Explore';
   private metaTags = [
@@ -132,6 +159,7 @@ export class ExploreComponent implements OnInit {
   public updateSelectedTab(tab: string) {
     if (isExploreCategory(tab)) {
       this.selectedTab.set(tab as ExploreCategory);
+      this.selectionService().clearSelection();
     }
   }
   public selectedTab = signal<ExploreCategory>(
@@ -298,6 +326,10 @@ export class ExploreComponent implements OnInit {
     this.quickAdd.quickAddToCompilation(compilation, this.selectObjectId);
   }
 
+  public getElementRoute(element: IEntity | ICompilation): string[] {
+    return isEntity(element) ? ['/entity', element._id] : ['/compilation', element._id];
+  }
+
   public updateFilter() {
     const filters = this.selectedFilterOptions();
     const sortBy = (filters.find(o => o.category === 'sortBy')?.value ??
@@ -398,6 +430,57 @@ export class ExploreComponent implements OnInit {
     if (result) {
       this.selectedFilterOptions.set(result);
     }
+  }
+
+  public isSelected(element: ICompilation | IEntity): boolean {
+    return this.selectionService().isSelected(element);
+  }
+
+  public addCompilationToSelection(element: ICompilation | IEntity, event: MouseEvent) {
+    this.selectionService().addToSelection(element, event);
+  }
+
+  public getMenuForSelected(): MatMenu | null {
+    const selection = this.selectionService().selectedElements();
+
+    if (selection.every(isEntity)) return this.entityMenu;
+    if (selection.every(isCompilation)) return this.compilationMenu;
+
+    return null;
+  }
+
+  onMouseDown(event: MouseEvent) {
+    const target = event.target as HTMLElement;
+
+    const hasSelectionBoxParent = !!target.closest('.selection');
+    const hasForbiddenTagName = ['BUTTON', 'INPUT', 'MAT-ICON', 'MAT-MENU-ITEM'].includes(
+      target.tagName,
+    );
+    if (hasSelectionBoxParent || hasForbiddenTagName) {
+      return;
+    }
+
+    if (!event.shiftKey && !event.ctrlKey) {
+      this.selectionService().onMouseDown(event);
+    }
+  }
+
+  onMouseMove(event: MouseEvent) {
+    this.selectionService().onMouseMove(event);
+  }
+
+  onMouseUp() {
+    const selectionRect = this.selectionService().getCurrentBoxRect();
+    this.selectionService().stopDragging();
+    if (!selectionRect) return;
+
+    const compElementPairs =
+      this.filteredResults.map((element, index) => ({
+        element,
+        htmlElement: this.gridItems.get(index)?.nativeElement as HTMLElement,
+      })) || [];
+
+    this.selectionService().selectElementsInRect(selectionRect, compElementPairs);
   }
 
   ngOnInit() {

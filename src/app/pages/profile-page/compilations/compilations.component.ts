@@ -1,6 +1,16 @@
 import { AsyncPipe } from '@angular/common';
-import { Component, inject, input, signal } from '@angular/core';
-import { toObservable } from '@angular/core/rxjs-interop';
+import {
+  Component,
+  computed,
+  ElementRef,
+  inject,
+  input,
+  QueryList,
+  signal,
+  ViewChild,
+  ViewChildren,
+} from '@angular/core';
+import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatChipsModule } from '@angular/material/chips';
@@ -10,13 +20,24 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { RouterLink } from '@angular/router';
-import { combineLatest, map, switchMap } from 'rxjs';
+import { combineLatest, firstValueFrom, map, switchMap } from 'rxjs';
+
 import { GridElementComponent } from 'src/app/components/grid-element/grid-element.component';
+import { SelectionContainerComponent } from 'src/app/components/selection/selection-container.component';
+import { VisibilityAndAccessDialogComponent } from 'src/app/dialogs';
+import { ManageOwnershipComponent } from 'src/app/dialogs/manage-ownership/manage-ownership.component';
 import { TranslatePipe } from 'src/app/pipes';
-import { AccountService, BackendService, DialogHelperService } from 'src/app/services';
+import {
+  AccountService,
+  BackendService,
+  DialogHelperService,
+  SnackbarService,
+} from 'src/app/services';
 import { CacheManagerService } from 'src/app/services/cache-manager.service';
+import { SelectionService } from 'src/app/services/selection.service';
 import { AddCompilationWizardComponent } from 'src/app/wizards';
-import { Collection, ICompilation, isCompilation } from 'src/common';
+import { Collection, EntityAccessRole, ICompilation, IEntity, isCompilation } from 'src/common';
+import { IsUserOfRolePipe } from '../../../pipes/is-user-of-role.pipe';
 
 @Component({
   selector: 'app-profile-compilations',
@@ -35,6 +56,8 @@ import { Collection, ICompilation, isCompilation } from 'src/common';
     FormsModule,
     TranslatePipe,
     AsyncPipe,
+    SelectionContainerComponent,
+    IsUserOfRolePipe,
   ],
 })
 export class ProfileCompilationsComponent {
@@ -43,12 +66,44 @@ export class ProfileCompilationsComponent {
   #dialog = inject(MatDialog);
   #backend = inject(BackendService);
   #helper = inject(DialogHelperService);
+  #rootSelectionService = inject(SelectionService);
+  #selectionContainerSignal = signal<SelectionContainerComponent | undefined>(undefined);
+  #snackbar = inject(SnackbarService);
+
+  @ViewChildren('gridItem', { read: ElementRef }) gridItems!: QueryList<ElementRef>;
+  @ViewChild('sc') set selectionContainer(container: SelectionContainerComponent | undefined) {
+    this.#selectionContainerSignal.set(container);
+  }
 
   showPartakingCompilations = signal(false);
   showPartakingCompilations$ = toObservable(this.showPartakingCompilations);
 
   searchText = input<string>('');
   searchText$ = toObservable(this.searchText);
+
+  user = toSignal(this.#account.user$);
+
+  editorCompilationsInSelection = computed(() =>
+    this.selectionService().filterByRole(this.user()?._id, 'editor'),
+  );
+  selectionHasEditorCompilations = computed(() => this.editorCompilationsInSelection().length > 0);
+
+  viewerCompilationsInSelection = computed(() =>
+    this.selectionService().filterByRole(this.user()?._id, 'viewer'),
+  );
+  selectionHasViewerCompilations = computed(() => this.viewerCompilationsInSelection().length > 0);
+
+  isOwner(compilation: ICompilation): boolean {
+    const user = this.user();
+    if (!user?._id) return false;
+
+    const userAccess = compilation.access?.[user._id];
+    return userAccess?.role === 'owner';
+  }
+
+  public selectionService = computed<SelectionService>(
+    () => this.#selectionContainerSignal()?.selectionService ?? this.#rootSelectionService,
+  );
 
   userCompilations$ = this.#account.compilationsWithEntities$.pipe(
     map(compilations => compilations.filter(c => isCompilation(c))),
@@ -70,6 +125,10 @@ export class ProfileCompilationsComponent {
   ).pipe(
     map(([text, showPartaking, userCompilations, partakingCompilations]) => {
       const compilations = showPartaking ? partakingCompilations : userCompilations;
+
+      /* Change owner of legacy-collections, when accessfield is empty */
+      if (compilations) this.tryAccessField(compilations);
+
       if (!compilations || compilations.length === 0) return { empty: true, results: [] };
       if (!text || text.trim().length === 0) return { empty: false, results: compilations };
       text = text.trim().toLowerCase();
@@ -82,6 +141,12 @@ export class ProfileCompilationsComponent {
         ),
       };
     }),
+  );
+
+  filteredCompilationsSignal = toSignal(this.filteredCompilations$);
+
+  readonly singleSelectedCompilation = computed(() =>
+    this.selectionService().singleSelectedCompilation(),
   );
 
   public openCompilationCreation(compilation?: ICompilation) {
@@ -97,20 +162,174 @@ export class ProfileCompilationsComponent {
       });
   }
 
-  public async removeCompilationDialog(compilation: ICompilation) {
+  public openTransferOwnerDialog(compilation?: ICompilation) {
+    const selection = this.selectionService().selectedElements();
+    const data = compilation ?? (selection.length === 1 ? selection[0] : selection);
+
+    const dialogRef = this.#dialog.open(ManageOwnershipComponent, {
+      data: data,
+      disableClose: false,
+    });
+
+    dialogRef
+      .afterClosed()
+      .toPromise()
+      .then(result => {
+        this.#account.updateTrigger$.next(Collection.compilation);
+      });
+  }
+
+  public openVisibilityAndAccessDialog(compilation?: ICompilation) {
+    const selection = this.selectionService().selectedElements();
+    const data = compilation ?? (selection.length === 1 ? selection[0] : selection);
+
+    const dialogRef = this.#dialog.open(VisibilityAndAccessDialogComponent, {
+      data: data,
+      disableClose: true,
+    });
+
+    firstValueFrom(dialogRef.afterClosed()).then(
+      (result: null | undefined | IEntity | ICompilation) => {
+        if (!result) return;
+        this.#account.updateTrigger$.next(Collection.compilation);
+      },
+    );
+
+    this.selectionService().clearSelection();
+  }
+
+  public async singleRemoveCompilation(compilation: ICompilation) {
     const loginData = await this.#helper.confirmWithAuth(
       `Do you really want to delete ${compilation.name}?`,
       `Validate login before deleting: ${compilation.name}`,
     );
     if (!loginData) return;
-    const { username, password } = loginData;
-
-    // Delete
-    this.#backend
-      .deleteRequest(compilation._id, 'compilation', username, password)
-      .then(result => {
-        this.#account.updateTrigger$.next(Collection.compilation);
-      })
-      .catch(e => console.error(e));
+    this.removeCompilation(compilation, loginData);
   }
+
+  public async multiRemoveCompilations() {
+    const loginData = await this.#helper.confirmWithAuth(
+      `Do you really want to delete these ${this.selectionService().selectedElements().length}?`,
+      `Validate login before deleting.`,
+    );
+    if (!loginData) return;
+    this.selectionService()
+      .selectedElements()
+      .forEach(compilation => {
+        if (isCompilation(compilation)) {
+          this.removeCompilation(compilation, loginData);
+        }
+      });
+
+    this.selectionService().clearSelection();
+  }
+
+  private async removeCompilation(
+    compilation: ICompilation,
+    loginData: { username: string; password: string },
+  ) {
+    const { username, password } = loginData;
+    const isOwner = this.isOwner(compilation);
+
+    if (isOwner) {
+      this.#backend
+        .deleteRequest(compilation._id, 'compilation', username, password)
+        .then(result => {
+          this.#account.updateTrigger$.next(Collection.compilation);
+        })
+        .catch(e => console.error(e));
+    } else {
+      this.#backend
+        .removeSelfFromAccess('compilation', compilation._id)
+        .then(result => {
+          this.#account.updateTrigger$.next(Collection.compilation);
+        })
+        .catch(e => console.error(e));
+    }
+  }
+
+  //Selection
+
+  public isSelected(compilation: ICompilation): boolean {
+    return this.selectionService().isSelected(compilation);
+  }
+
+  public addCompilationToSelection(compilation: ICompilation, event: MouseEvent) {
+    this.selectionService().addToSelection(compilation, event);
+  }
+
+  onMouseDown(event: MouseEvent) {
+    const target = event.target as HTMLElement;
+
+    const hasSelectionBoxParent = !!target.closest('.selection');
+    const hasForbiddenTagName = ['BUTTON', 'INPUT', 'MAT-ICON', 'MAT-MENU-ITEM'].includes(
+      target.tagName,
+    );
+    if (hasSelectionBoxParent || hasForbiddenTagName) {
+      return;
+    }
+
+    if (!event.shiftKey && !event.ctrlKey) {
+      this.selectionService().onMouseDown(event);
+    }
+  }
+
+  onMouseMove(event: MouseEvent) {
+    this.selectionService().onMouseMove(event);
+  }
+
+  onMouseUp() {
+    const selectionRect = this.selectionService().getCurrentBoxRect();
+    this.selectionService().stopDragging();
+    if (!selectionRect) return;
+
+    const user = this.user();
+    if (!user?._id) {
+      this.#snackbar.showMessage('You must be logged in to select entities.', 5);
+      return;
+    }
+
+    const compElementPairs =
+      this.filteredCompilationsSignal()?.results.map((element, index) => ({
+        element,
+        htmlElement: this.gridItems.get(index)?.nativeElement as HTMLElement,
+      })) || [];
+
+    this.selectionService().selectElementsInRect(selectionRect, compElementPairs);
+  }
+
+  /* Helper until access-field is used */
+  tryAccessField(
+    data?:
+      | IEntity<Record<string, unknown>, false>
+      | ICompilation<false>
+      | (IEntity<Record<string, unknown>, false> | ICompilation<false>)[],
+  ) {
+    if (!data) return;
+    const items = Array.isArray(data) ? data : [data];
+
+    const compilationsWithEmptyAccess = items.filter(
+      (item): item is ICompilation<false> => item && item.access == null,
+    );
+
+    compilationsWithEmptyAccess.forEach(comp => this.makeCreatorOwnerIfAccessIsUnused(comp));
+  }
+
+  makeCreatorOwnerIfAccessIsUnused(compilation: ICompilation) {
+    const creator = compilation.creator;
+    if (!creator) return;
+
+    if (!compilation.access) {
+      compilation.access = {};
+    }
+
+    compilation.access![creator._id] = {
+      _id: creator._id,
+      fullname: creator.fullname,
+      username: creator.username,
+      role: EntityAccessRole.owner,
+    };
+  }
+
+  /* Helper End*/
 }

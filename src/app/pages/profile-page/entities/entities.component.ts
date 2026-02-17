@@ -10,6 +10,7 @@ import {
   QueryList,
   signal,
   viewChild,
+  ViewChild,
   ViewChildren,
 } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
@@ -43,11 +44,10 @@ import {
 } from 'src/app/services';
 import { SelectionService } from 'src/app/services/selection.service';
 import { AddCompilationWizardComponent, AddEntityWizardComponent } from 'src/app/wizards';
-import { Collection, ICompilation, IEntity, isMetadataEntity } from 'src/common';
-import { IUserData, IUserDataWithoutData } from 'src/common/interfaces';
-import { SelectionBox } from '../selection-box/selection-box.component';
+import { Collection, ICompilation, IEntity, isEntity, isMetadataEntity } from 'src/common';
+import { SelectionContainerComponent } from 'src/app/components/selection/selection-container.component';
 import { IsUserOfRolePipe } from 'src/app/pipes/is-user-of-role.pipe';
-const deepClone = DeepClone({ circles: true });
+// const deepClone = DeepClone({ circles: true });
 
 @Component({
   selector: 'app-profile-entities',
@@ -74,7 +74,7 @@ const deepClone = DeepClone({ circles: true });
     FormsModule,
     TranslatePipe,
     AsyncPipe,
-    SelectionBox,
+    SelectionContainerComponent,
     IsUserOfRolePipe,
   ],
 })
@@ -84,7 +84,8 @@ export class ProfileEntitiesComponent {
   private backend = inject(BackendService);
   private helper = inject(DialogHelperService);
   private quickAdd = inject(QuickAddService);
-  public selectionService = inject(SelectionService);
+  private _rootSelectionService = inject(SelectionService);
+  private selectionContainerSignal = signal<SelectionContainerComponent | undefined>(undefined);
   private snackbar = inject(SnackbarService);
 
   searchText = input<string>('');
@@ -95,29 +96,27 @@ export class ProfileEntitiesComponent {
   paginator = viewChild(MatPaginator);
 
   @ViewChildren('gridItem', { read: ElementRef }) gridItems!: QueryList<ElementRef>;
-
-  editorEntitiesInSelection = this.findRoleInSelection('editor');
-  selectionHasEditorEntities = computed(() => this.editorEntitiesInSelection().length > 0);
-
-  viewerEntitiesInSelection = this.findRoleInSelection('viewer');
-  selectionHasViewerEntities = computed(() => this.viewerEntitiesInSelection().length > 0);
-
-  private findRoleInSelection(role: 'editor' | 'viewer') {
-    return computed(() => {
-      const selectedEntities = this.selectionService.selectedEntities();
-      const user = this.user();
-      if (!user?._id) return [];
-      return selectedEntities.filter(entity => {
-        const userAccess = entity.access?.[user._id];
-        return userAccess?.role === role;
-      });
-    });
+  @ViewChild('sc') set selectionContainer(container: SelectionContainerComponent | undefined) {
+    this.selectionContainerSignal.set(container);
   }
 
-  readonly singleSelectedEntity = computed(() => {
-    const entities = this.selectionService.selectedEntities();
-    return entities.length === 1 ? entities[0] : null;
-  });
+  public selectionService = computed<SelectionService>(
+    () => this.selectionContainerSignal()?.selectionService ?? this._rootSelectionService,
+  );
+
+  public user = toSignal(this.account.user$);
+
+  editorEntitiesInSelection = computed(() =>
+    this.selectionService().filterByRole(this.user()?._id, 'editor'),
+  );
+  selectionHasEditorEntities = computed(() => this.editorEntitiesInSelection().length > 0);
+
+  viewerEntitiesInSelection = computed(() =>
+    this.selectionService().filterByRole(this.user()?._id, 'viewer'),
+  );
+  selectionHasViewerEntities = computed(() => this.viewerEntitiesInSelection().length > 0);
+
+  readonly singleSelectedEntity = computed(() => this.selectionService().singleSelectedEntity());
 
   public pageEvent$ = new BehaviorSubject<PageEvent>({
     previousPageIndex: 0,
@@ -126,7 +125,6 @@ export class ProfileEntitiesComponent {
     length: Number.POSITIVE_INFINITY,
   });
 
-  public selectedEntities = signal<Set<IEntity>>(new Set());
   public userCompilations = toSignal(this.account.compilations$, { initialValue: null });
 
   isOwner(entity: IEntity): boolean {
@@ -148,8 +146,6 @@ export class ProfileEntitiesComponent {
       this.paginator()?.firstPage();
     });
   }
-
-  public user = toSignal(this.account.user$);
 
   filteredEntities$ = this.entityType$.pipe(
     switchMap(type =>
@@ -216,7 +212,7 @@ export class ProfileEntitiesComponent {
   //Multi entities
 
   public openTransferOwnerDialog(entity?: IEntity) {
-    const selection = this.selectionService.selectedEntities();
+    const selection = this.selectionService().selectedElements();
     const data = entity ?? (selection.length === 1 ? selection[0] : selection);
 
     const dialogRef = this.dialog.open(ManageOwnershipComponent, {
@@ -233,7 +229,7 @@ export class ProfileEntitiesComponent {
   }
 
   public openVisibilityAndAccessDialog(entity?: IEntity) {
-    const selection = this.selectionService.selectedEntities();
+    const selection = this.selectionService().selectedElements();
     const data = entity ?? (selection.length === 1 ? selection[0] : selection);
 
     const dialogRef = this.dialog.open(VisibilityAndAccessDialogComponent, {
@@ -248,11 +244,11 @@ export class ProfileEntitiesComponent {
       },
     );
 
-    this.selectionService.clearSelection();
+    this.selectionService().clearSelection();
   }
 
   public openCompilationWizard() {
-    const selection = this.selectionService.selectedEntities();
+    const selection = this.selectionService().selectedElements();
     if (!selection || selection.length === 0) {
       this.snackbar.showMessage('Please select at least one entity to add to a compilation.', 5);
       return;
@@ -269,11 +265,11 @@ export class ProfileEntitiesComponent {
         this.account.updateTrigger$.next(Collection.compilation);
       });
 
-    this.selectionService.clearSelection();
+    this.selectionService().clearSelection();
   }
 
   public async quickAddToCompilation(comp: ICompilation) {
-    const selection = this.selectionService.selectedEntities();
+    const selection = this.selectionService().selectedElements();
     if (!selection || selection.length === 0) {
       this.snackbar.showMessage('Please select at least one entity to add to the compilation.', 5);
       return;
@@ -283,7 +279,7 @@ export class ProfileEntitiesComponent {
       await this.quickAdd.quickAddToCompilation(comp, entity._id.toString());
     }
 
-    this.selectionService.clearSelection();
+    this.selectionService().clearSelection();
   }
 
   public async singleRemoveEntity(entity: IEntity) {
@@ -297,15 +293,19 @@ export class ProfileEntitiesComponent {
 
   public async multiRemoveEntities() {
     const loginData = await this.helper.confirmWithAuth(
-      `Do you really want to delete these ${this.selectionService.selectedEntities().length} items?`,
+      `Do you really want to delete these ${this.selectionService().selectedElements().length} items?`,
       `Validate login before deleting.`,
     );
     if (!loginData) return;
-    this.selectionService.selectedEntities().forEach(entity => {
-      this.removeEntity(entity, loginData);
-    });
+    this.selectionService()
+      .selectedElements()
+      .forEach(entity => {
+        if (isEntity(entity)) {
+          this.removeEntity(entity, loginData);
+        }
+      });
 
-    this.selectionService.clearSelection();
+    this.selectionService().clearSelection();
   }
 
   public async removeEntity(entity: IEntity, loginData: { username: string; password: string }) {
@@ -331,11 +331,11 @@ export class ProfileEntitiesComponent {
 
   //Selection
   public isSelected(entity: IEntity): boolean {
-    return this.selectionService.isSelected(entity);
+    return this.selectionService().isSelected(entity);
   }
 
   public addEntityToSelection(entity: IEntity, event: MouseEvent) {
-    this.selectionService.addToSelection(entity, event);
+    this.selectionService().addToSelection(entity, event);
   }
 
   onMouseDown(event: MouseEvent) {
@@ -350,18 +350,17 @@ export class ProfileEntitiesComponent {
     }
 
     if (!event.shiftKey && !event.ctrlKey) {
-      this.selectionService.onMouseDown(event);
+      this.selectionService().onMouseDown(event);
     }
   }
 
   onMouseMove(event: MouseEvent) {
-    this.selectionService.onMouseMove(event);
+    this.selectionService().onMouseMove(event);
   }
 
   onMouseUp() {
-    this.selectionService.stopDragging();
-
-    const selectionRect = this.selectionService.getCurrentBoxRect();
+    const selectionRect = this.selectionService().getCurrentBoxRect();
+    this.selectionService().stopDragging();
     if (!selectionRect) return;
 
     const user = this.user();
@@ -371,11 +370,11 @@ export class ProfileEntitiesComponent {
     }
 
     const entityElementPairs =
-      this.paginatorEntitiesSignal()?.map((entity, index) => ({
-        entity,
-        element: this.gridItems.get(index)?.nativeElement as HTMLElement,
+      this.paginatorEntitiesSignal()?.map((element, index) => ({
+        element,
+        htmlElement: this.gridItems.get(index)?.nativeElement as HTMLElement,
       })) || [];
 
-    this.selectionService.selectEntitiesInRect(selectionRect, entityElementPairs);
+    this.selectionService().selectElementsInRect(selectionRect, entityElementPairs);
   }
 }

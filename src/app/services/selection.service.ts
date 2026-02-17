@@ -1,57 +1,92 @@
-import { Injectable, signal } from '@angular/core';
-import { IEntity } from 'src/common';
+import { Injectable, signal, computed, Signal } from '@angular/core';
+import { IEntity, ICompilation, isEntity } from 'src/common';
 
 @Injectable({ providedIn: 'root' })
 export class SelectionService {
-  private selectedEntitiesSignal = signal<IEntity[]>([]);
-  public selectedEntities = this.selectedEntitiesSignal.asReadonly();
+  private selectedElementsSignal = signal<(IEntity | ICompilation)[]>([]);
+  public selectedElements = this.selectedElementsSignal.asReadonly();
 
-  public isDragging: boolean = false;
+  public singleSelected: Signal<IEntity | ICompilation | null> = computed(() => {
+    const sel = this.selectedElementsSignal();
+    return sel.length === 1 ? sel[0] : null;
+  });
+
+  public singleSelectedEntity: Signal<IEntity | null> = computed(() => {
+    const selection = this.singleSelected();
+    return selection && isEntity(selection) ? (selection as IEntity) : null;
+  });
+
+  public singleSelectedCompilation: Signal<ICompilation | null> = computed(() => {
+    const selection = this.singleSelected();
+    return selection && !isEntity(selection) ? (selection as ICompilation) : null;
+  });
+
+  public isDragging = signal<boolean>(false);
   private startX: number = 0;
   private startY: number = 0;
   public selectionBoxStyle = signal<{ [key: string]: string }>({});
 
-  public isSelected(entity: IEntity): boolean {
-    return this.selectedEntitiesSignal().some(
-      currentEntity => currentEntity.relatedDigitalEntity._id === entity.relatedDigitalEntity._id,
+  public hasSelection: Signal<boolean> = computed(() => {
+    return this.selectedElements().length > 0;
+  });
+
+  public isSelected(element: IEntity | ICompilation): boolean {
+    return this.selectedElementsSignal().some(currentElement =>
+      this.isSameElement(element, currentElement),
     );
   }
 
-  public addToSelection(entity: IEntity, event: MouseEvent) {
-    this.selectedEntitiesSignal.update(selection => {
-      const entityExists = selection.some(
-        currentEntity => currentEntity.relatedDigitalEntity._id === entity.relatedDigitalEntity._id,
+  public addToSelection(element: IEntity | ICompilation, event: MouseEvent) {
+    this.selectedElementsSignal.update(selection => {
+      const elementExists = selection.some(currentElement =>
+        this.isSameElement(element, currentElement),
       );
 
       if (event.shiftKey || event.ctrlKey) {
-        if (entityExists) {
-          return selection.filter(
-            currentEntity =>
-              currentEntity.relatedDigitalEntity._id !== entity.relatedDigitalEntity._id,
-          );
+        if (elementExists) {
+          return selection.filter(currentElement => !this.isSameElement(element, currentElement));
         } else {
-          return [...selection, entity];
+          return [...selection, element];
         }
       } else {
-        return [entity];
+        return [element];
       }
     });
   }
 
-  public clearSelection() {
-    this.selectedEntitiesSignal.set([]);
+  private isSameElement(
+    element: IEntity | ICompilation,
+    currentElement: IEntity | ICompilation,
+  ): boolean {
+    return isEntity(element) && isEntity(currentElement)
+      ? element.relatedDigitalEntity._id === currentElement.relatedDigitalEntity._id
+      : element._id === currentElement._id;
   }
 
-  selectEntitiesInRect(selectionRect: DOMRect, pairs: { entity: IEntity; element: HTMLElement }[]) {
-    const selected = pairs
-      .filter(({ element }) => this.rectsOverlap(selectionRect, element.getBoundingClientRect()))
-      .map(({ entity }) => entity);
+  public filterByRole(userId: string | undefined, role: 'editor' | 'viewer') {
+    if (!userId) return [];
+    return this.selectedElements().filter(el => el.access?.[userId]?.role === role);
+  }
 
-    this.selectedEntitiesSignal.set(selected);
+  public clearSelection() {
+    this.selectedElementsSignal.set([]);
+  }
+
+  selectElementsInRect(
+    selectionRect: DOMRect,
+    pairs: { element: IEntity | ICompilation; htmlElement: HTMLElement }[],
+  ) {
+    const selected = pairs
+      .filter(({ htmlElement: element }) =>
+        this.rectsOverlap(selectionRect, element.getBoundingClientRect()),
+      )
+      .map(({ element: element }) => element);
+
+    this.selectedElementsSignal.set(selected);
   }
 
   onMouseDown(event: MouseEvent) {
-    this.isDragging = true;
+    this.isDragging.set(true);
     this.startX = event.clientX;
     this.startY = event.clientY;
 
@@ -64,7 +99,7 @@ export class SelectionService {
   }
 
   onMouseMove(event: MouseEvent): void {
-    if (this.isDragging) {
+    if (this.isDragging()) {
       const width = event.clientX - this.startX;
       const height = event.clientY - this.startY;
       const left = this.startX < event.clientX ? this.startX : event.clientX;
@@ -80,7 +115,7 @@ export class SelectionService {
   }
 
   stopDragging() {
-    this.isDragging = false;
+    this.isDragging.set(false);
     this.selectionBoxStyle.set({});
   }
 

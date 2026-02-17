@@ -67,6 +67,11 @@ export class VisibilityAndAccessDialogComponent implements AfterViewInit {
     return Array.isArray(data) && data.length > 1;
   });
 
+  public isLastOwner(userId: string): boolean {
+    const owners = this.entityOwners();
+    return owners.length === 1 && owners[0]._id === userId;
+  }
+
   // This is used in the AddEntityWizard to extract the changed settings
   public changedSettings = computed<ChangedVisibilitySettings>(() => {
     const data = this.data();

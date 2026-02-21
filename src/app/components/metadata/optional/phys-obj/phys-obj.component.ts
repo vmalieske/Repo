@@ -15,7 +15,6 @@ import { BiblioRefComponent } from '../biblio-ref/biblio-ref.component';
 import { ExternalIdsComponent } from '../external-ids/external-ids.component';
 import { LinksComponent } from '../links/links.component';
 import { MetadataFilesComponent } from '../metadata-files/metadata-files.component';
-import { OtherComponent } from '../other/other.component';
 
 @Component({
   selector: 'app-phys-obj',
@@ -35,7 +34,6 @@ import { OtherComponent } from '../other/other.component';
     AddressComponent,
     ExternalIdsComponent,
     MetadataFilesComponent,
-    OtherComponent,
   ],
   templateUrl: './phys-obj.component.html',
   styleUrl: './phys-obj.component.scss',
